@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3'; // استيراد router
 import { ref, onMounted, onUnmounted, reactive } from 'vue';
 import axios from 'axios';
 
@@ -60,7 +60,7 @@ const captureAndSendFrame = () => {
                     const studentId = response.data.student_id;
                     // Find the student in our reactive list and update their status
                     const studentToUpdate = attendanceList.find(att => att.student_id === studentId);
-                    if (studentToUpdate) {
+                    if (studentToUpdate && !studentToUpdate.is_present) { // التأكد من أنه لم يتم تحديثه من قبل
                         studentToUpdate.is_present = true;
                     }
                 }
@@ -69,6 +69,18 @@ const captureAndSendFrame = () => {
                 // console.log("Not recognized or error:", error.response.data);
             });
     }, 'image/jpeg');
+};
+
+// --- دالة جديدة لإنهاء الجلسة ---
+const endSession = () => {
+    if (confirm('Are you sure you want to end the session? This will send notifications to absent students.')) {
+        // إيقاف الكاميرا والالتقاط أولاً
+        stopCamera();
+        
+        router.post(route('teacher.attendance.end', { course: props.course.id }), {
+            schedule_id: props.schedule.id,
+        });
+    }
 };
 
 onMounted(() => {
@@ -92,25 +104,36 @@ onUnmounted(() => {
         </template>
 
         <div class="py-12">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div class="md:col-span-2 p-4 bg-black rounded-lg shadow">
-                    <video ref="video" autoplay playsinline class="w-full h-auto rounded-md"></video>
-                    <canvas ref="canvas" class="hidden"></canvas>
+            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+                
+                <div class="mb-4 flex justify-end">
+                    <form @submit.prevent="endSession">
+                        <button type="submit" class="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75">
+                            End Session & Notify Absentees
+                        </button>
+                    </form>
                 </div>
 
-                <div class="md:col-span-1 p-4 bg-white rounded-lg shadow">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Attendance Status</h3>
-                    <ul class="space-y-3">
-                        <li v-for="att in attendanceList" :key="att.id" class="flex items-center justify-between">
-                            <span class="text-gray-800">{{ att.student.name }}</span>
-                            <span v-if="att.is_present" class="px-3 py-1 text-xs font-semibold rounded-full bg-green-200 text-green-800">
-                                Present
-                            </span>
-                            <span v-else class="px-3 py-1 text-xs font-semibold rounded-full bg-gray-200 text-gray-800">
-                                Absent
-                            </span>
-                        </li>
-                    </ul>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="md:col-span-2 p-4 bg-black rounded-lg shadow">
+                        <video ref="video" autoplay playsinline class="w-full h-auto rounded-md"></video>
+                        <canvas ref="canvas" class="hidden"></canvas>
+                    </div>
+
+                    <div class="md:col-span-1 p-4 bg-white rounded-lg shadow">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Attendance Status</h3>
+                        <ul class="space-y-3">
+                            <li v-for="att in attendanceList" :key="att.id" class="flex items-center justify-between">
+                                <span class="text-gray-800">{{ att.student.name }}</span>
+                                <span v-if="att.is_present" class="px-3 py-1 text-xs font-semibold rounded-full bg-green-200 text-green-800">
+                                    Present
+                                </span>
+                                <span v-else class="px-3 py-1 text-xs font-semibold rounded-full bg-gray-200 text-gray-800">
+                                    Absent
+                                </span>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>

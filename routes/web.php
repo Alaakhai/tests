@@ -49,6 +49,7 @@ Route::post('/students', [TeacherController::class, 'storeStudent'])->name('stud
 // --- Add these two new routes for the attendance session ---
 Route::get('/courses/{course}/attendance', [TeacherController::class, 'startAttendanceSession'])->name('attendance.start');
 Route::post('/attendance/mark', [TeacherController::class, 'markAttendance'])->name('attendance.mark');
+Route::post('/courses/{course}/attendance/end', [TeacherController::class, 'endAttendanceSession'])->name('attendance.end');
 });
 
 // You can also create a dedicated student group if you plan to add more routes
