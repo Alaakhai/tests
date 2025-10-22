@@ -17,6 +17,12 @@ use App\Models\Attendance; // Import the Attendance model
 use Carbon\Carbon; // Import Carbon for date handling
 use Illuminate\Support\Facades\Http; // Import Http facade for making HTTP requests
 use App\Models\Schedule; // Import the Schedule model
+use Illuminate\Support\Facades\Log; // Import Log facade for logging errors
+use Illuminate\Support\Str; // Import Str for generating random strings
+use Illuminate\Support\Facades\Mail; // Import Mail facade for sending emails
+use App\Mail\AbsentStudentVerificationMail; // Import the Mailable for absent student verification
+use App\Jobs\SendAbsentVerificationEmail; // Import the job for sending absent verification emails
+
 
 
 class TeacherController extends Controller
@@ -163,12 +169,14 @@ public function startAttendanceSession(Course $course)
     }
 
     // Get the current day and find the corresponding schedule
-    $todayName = Carbon::now()->format('l'); // e.g., "Sunday"
-    $schedule = $course->schedules()->where('day_of_week', $todayName)->first();
+// ...
+$todayName = Carbon::now()->format('l'); // e.g., "Tuesday"
+$schedule = $course->schedules()->where('day_of_week', $todayName)->first();
 
-    if (!$schedule) {
-        return back()->with('error', "There is no scheduled lecture for this course today ({$todayName}).");
-    }
+if (!$schedule) {
+    return back()->with('error', "There is no scheduled lecture for this course today ({$todayName}).");
+}
+// ...
 
     // Get all students enrolled in the course
     $students = $course->students()->get();
@@ -199,43 +207,69 @@ public function startAttendanceSession(Course $course)
 }
 
 public function markAttendance(Request $request)
-{
-    $request->validate([
-        'image' => 'required|image',
-        'schedule_id' => 'required|exists:schedules,id',
-    ]);
+    {
+        $request->validate([
+            'image' => 'required|image',
+            'schedule_id' => 'required|exists:schedules,id',
+        ]);
 
-    try {
-        $response = Http::attach(
-            'image', file_get_contents($request->file('image')), 'photo.jpg'
-        )->post('http://127.0.0.1:5000/recognize-face');
+        try {
+            // إرسال الصورة إلى Flask API
+            $response = Http::attach(
+                'image', file_get_contents($request->file('image')), 'frame.jpg'
+            )->post('http://127.0.0.1:5000/recognize-face'); // تأكد من أن هذا هو عنوان Flask
 
-        if ($response->successful() && $response->json('student_id')) {
-            $studentId = $response->json('student_id');
+            if ($response->successful()) {
+                $studentId = $response->json('student_id');
 
-            $attendance = Attendance::where('student_id', $studentId)
-                                    ->where('schedule_id', $request->schedule_id)
-                                    ->whereDate('attendance_date', Carbon::today())
-                                    ->first();
+                // تحديث سجل الحضور
+                $attendance = Attendance::where('schedule_id', $request->schedule_id)
+                    ->where('student_id', $studentId)
+                    ->whereDate('attendance_date', today())
+                    ->first();
 
-            if ($attendance) {
-                // If student is not yet marked present, record their arrival
-                if (!$attendance->is_present) {
-                    $attendance->update(['is_present' => true, 'attended_at' => now()]);
-                    return response()->json(['status' => 'arrived', 'student_id' => $studentId]);
-                } 
-                // If student is already present and not yet departed, record their departure
-                elseif ($attendance->is_present && is_null($attendance->departed_at)) {
-                    $attendance->update(['departed_at' => now()]);
-                    return response()->json(['status' => 'departed', 'student_id' => $studentId]);
+                if ($attendance && !$attendance->is_present) {
+                    $attendance->update([
+                        'is_present' => true,
+                        'attended_at' => now(),
+                    ]);
                 }
+
+                return response()->json([
+                    'status' => 'success',
+                    'student_id' => $studentId
+                ]);
             }
+
+        } catch (\Exception $e) {
+            // تسجيل الخطأ في حال فشل الاتصال بـ Python
+            Log::error('Flask API connection error: ' . $e->getMessage());
+            return response()->json(['error' => 'Could not connect to recognition service.'], 500);
         }
 
         return response()->json(['status' => 'not_recognized'], 404);
-
-    } catch (\Exception $e) {
-        return response()->json(['status' => 'service_unavailable'], 503);
     }
-}
+
+    public function endAttendanceSession(Course $course, Request $request)
+    {
+        $scheduleId = $request->input('schedule_id');
+    
+        $absentStudents = Attendance::where('schedule_id', $scheduleId)
+            ->whereDate('attendance_date', today())
+            ->where('is_present', false)
+            ->with('student')
+            ->get();
+    
+        foreach ($absentStudents as $attendance) {
+            $student = $attendance->student;
+            if ($student && $student->email) {
+                $verificationCode = Str::random(6);
+    
+                // بدلاً من إرسال الإيميل مباشرة، نرسل المهمة إلى الطابور
+                SendAbsentVerificationEmail::dispatch($student, $verificationCode);
+            }
+        }
+    
+        return redirect()->route('teacher.courses.show', $course)->with('success', 'Session ended. Notifications for absent students are being sent.');
+    }
 }
