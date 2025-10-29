@@ -15,7 +15,8 @@ const adminLinks = [
     { route: 'admin.dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
     { route: 'admin.users.index', label: 'User Management', icon: 'fas fa-users-cog' },
     { route: 'admin.courses.index', label: 'Course Management', icon: 'fas fa-book' },
-    { route: 'admin.students.index', label: 'Student Management', icon: 'fas fa-user-graduate' }, 
+    { route: 'admin.students.index', label: 'Student Management', icon: 'fas fa-user-graduate' },
+    { route: 'admin.schedules.index', label: 'Schedule Management', icon: 'fas fa-calendar-alt' }, 
 ];
 
 const teacherLinks = [
