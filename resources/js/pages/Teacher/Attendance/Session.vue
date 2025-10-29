@@ -42,7 +42,10 @@ const stopCamera = () => {
 };
 
 const captureAndSendFrame = () => {
-    if (!video.value || !canvas.value) return;
+    if (!video.value || !canvas.value || video.value.videoWidth === 0) {
+        // نتأكد أيضاً أن الفيديو له أبعاد حقيقية
+        return;
+    }
 
     const context = canvas.value.getContext('2d');
     canvas.value.width = video.value.videoWidth;
@@ -50,6 +53,13 @@ const captureAndSendFrame = () => {
     context.drawImage(video.value, 0, 0, canvas.value.width, canvas.value.height);
 
     canvas.value.toBlob((blob) => {
+        // --- هذا هو السطر المهم الذي تم إضافته ---
+        // إذا فشلت عملية التحويل، سيكون الـ blob فارغًا، لذا نتوقف هنا
+        if (!blob) {
+            console.error("Failed to capture frame from canvas.");
+            return;
+        }
+
         const formData = new FormData();
         formData.append('image', blob, 'frame.jpg');
         formData.append('schedule_id', props.schedule.id);
@@ -58,9 +68,8 @@ const captureAndSendFrame = () => {
             .then(response => {
                 if (response.data.status === 'success') {
                     const studentId = response.data.student_id;
-                    // Find the student in our reactive list and update their status
                     const studentToUpdate = attendanceList.find(att => att.student_id === studentId);
-                    if (studentToUpdate && !studentToUpdate.is_present) { // التأكد من أنه لم يتم تحديثه من قبل
+                    if (studentToUpdate && !studentToUpdate.is_present) {
                         studentToUpdate.is_present = true;
                     }
                 }
