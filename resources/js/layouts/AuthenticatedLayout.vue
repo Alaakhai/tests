@@ -15,6 +15,7 @@ const adminLinks = [
   { route: 'admin.courses.index', label: 'Course Management', icon: 'fas fa-book' },
   { route: 'admin.students.index', label: 'Student Management', icon: 'fas fa-user-graduate' },
   { route: 'admin.schedules.index', label: 'Schedule Management', icon: 'fas fa-calendar-alt' },
+  { route: 'admin.attendance.index', label: 'Attendance ', icon: 'fas fa-clipboard-check' }, // ✅ تمت الإضافة
 ]
 
 const teacherLinks = [

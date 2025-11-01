@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
-import { Head, router } from '@inertiajs/vue3'; // استيراد router
+import { Head, router } from '@inertiajs/vue3';
 import { ref, onMounted, onUnmounted, reactive } from 'vue';
 import axios from 'axios';
 
@@ -15,10 +15,13 @@ const canvas = ref(null);
 let stream = null;
 let captureInterval = null;
 
-// Make attendance reactive so the UI updates
+// اجعل قائمة الحضور تفاعلية لتتحدث الواجهة
 const attendanceList = reactive(
     props.todaysAttendance.map(att => ({ ...att }))
 );
+
+// قفل لمنع إرسال طلبات متزامنة كثيرة
+const isRecognizing = ref(false);
 
 const startCamera = async () => {
     try {
@@ -41,42 +44,54 @@ const stopCamera = () => {
     }
 };
 
-const captureAndSendFrame = () => {
-    if (!video.value || !canvas.value) return;
+const captureAndSendFrame = async () => {
+    if (!video.value || !canvas.value || isRecognizing.value) return;
 
-    const context = canvas.value.getContext('2d');
-    canvas.value.width = video.value.videoWidth;
-    canvas.value.height = video.value.videoHeight;
-    context.drawImage(video.value, 0, 0, canvas.value.width, canvas.value.height);
+    try {
+        isRecognizing.value = true;
 
-    canvas.value.toBlob((blob) => {
+        const context = canvas.value.getContext('2d');
+        canvas.value.width = video.value.videoWidth || 640;
+        canvas.value.height = video.value.videoHeight || 480;
+        context.drawImage(video.value, 0, 0, canvas.value.width, canvas.value.height);
+
+        const blob = await new Promise(resolve => canvas.value.toBlob(resolve, 'image/jpeg', 0.9));
+
         const formData = new FormData();
-        formData.append('image', blob, 'frame.jpg');
+        // ملاحظة مهمة: Laravel غالبًا يتوقع الحقل باسم "photo"
+        formData.append('photo', blob, 'frame.jpg');
         formData.append('schedule_id', props.schedule.id);
 
-        axios.post(route('teacher.attendance.mark'), formData)
-            .then(response => {
-                if (response.data.status === 'success') {
-                    const studentId = response.data.student_id;
-                    // Find the student in our reactive list and update their status
-                    const studentToUpdate = attendanceList.find(att => att.student_id === studentId);
-                    if (studentToUpdate && !studentToUpdate.is_present) { // التأكد من أنه لم يتم تحديثه من قبل
-                        studentToUpdate.is_present = true;
-                    }
-                }
-            })
-            .catch(error => {
-                // console.log("Not recognized or error:", error.response.data);
-            });
-    }, 'image/jpeg');
+        const response = await axios.post(route('teacher.attendance.mark'), formData);
+
+        // نقرأ النتيجة بطريقتين: إن أعاد Laravel مباشرة student_id
+        // أو إن مرّر استجابة Flask كما هي داخل recognized[0].student_id
+        const directId = response?.data?.student_id ?? null;
+        const nestedId = response?.data?.recognized?.[0]?.student_id ?? null;
+
+        const studentId = directId ?? nestedId;
+
+        if (studentId != null) {
+            const sid = Number(studentId);
+            const studentToUpdate = attendanceList.find(att => Number(att.student_id) === sid);
+            if (studentToUpdate && !studentToUpdate.is_present) {
+                studentToUpdate.is_present = true;
+            }
+        } else {
+            // لم يتم التعرف - بإمكانك إظهار شيء بسيط أو تجاهله
+            // console.debug('Unknown face or no match this frame');
+        }
+    } catch (error) {
+        // راقب الرد إن أردت: console.error(error?.response?.data || error.message);
+    } finally {
+        isRecognizing.value = false;
+    }
 };
 
-// --- دالة جديدة لإنهاء الجلسة ---
+// --- إنهاء الجلسة ---
 const endSession = () => {
     if (confirm('Are you sure you want to end the session? This will send notifications to absent students.')) {
-        // إيقاف الكاميرا والالتقاط أولاً
         stopCamera();
-        
         router.post(route('teacher.attendance.end', { course: props.course.id }), {
             schedule_id: props.schedule.id,
         });
@@ -85,7 +100,7 @@ const endSession = () => {
 
 onMounted(() => {
     startCamera();
-    // Capture a frame every 3 seconds
+    // التقط إطار كل 3 ثوانٍ
     captureInterval = setInterval(captureAndSendFrame, 3000);
 });
 
@@ -105,7 +120,7 @@ onUnmounted(() => {
 
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                
+
                 <div class="mb-4 flex justify-end">
                     <form @submit.prevent="endSession">
                         <button type="submit" class="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75">

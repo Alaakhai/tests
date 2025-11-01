@@ -4,111 +4,131 @@ use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+
 use App\Http\Controllers\Admin\AdminController;
-use App\Http\Controllers\Admin\ScheduleController; // ✅ أضفنا هذا السطر
+use App\Http\Controllers\Admin\ScheduleController;     // ✅
+use App\Http\Controllers\Admin\AttendanceController;   // ✅
 use App\Http\Controllers\Student\StudentController;
 use App\Http\Controllers\Teacher\TeacherController;
-use Illuminate\Support\Facades\Auth; // 🔑 استدعاء أساسي لمنطق التوجيه الجديد
+use Illuminate\Support\Facades\Auth;                   // 🔑
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
+        'canLogin'      => Route::has('login'),
+        'canRegister'   => Route::has('register'),
+        'laravelVersion'=> Application::VERSION,
+        'phpVersion'    => PHP_VERSION,
     ]);
 });
 
+/*
+|--------------------------------------------------------------------------
+| مجموعة الإدارة (Admin)
+|--------------------------------------------------------------------------
+*/
 Route::middleware(['auth', 'verified', 'role:admin'])
     ->prefix('admin')
     ->name('admin.')
     ->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
-        Route::get('/users', [AdminController::class, 'usersIndex'])->name('users.index');
 
-        // *** إدارة المستخدمين ***
-        Route::get('/users/create', [AdminController::class, 'createUser'])->name('users.create');
-        Route::post('/users', [AdminController::class, 'storeUser'])->name('users.store');
-        Route::get('/users/{user}/edit', [AdminController::class, 'editUser'])->name('users.edit');
-        Route::put('/users/{user}', [AdminController::class, 'updateUser'])->name('users.update');
-        // *** نهاية الإضافة ***
+        // --- إدارة المستخدمين ---
+        Route::get('/users',               [AdminController::class, 'usersIndex'])->name('users.index');
+        Route::get('/users/create',        [AdminController::class, 'createUser'])->name('users.create');
+        Route::post('/users',              [AdminController::class, 'storeUser'])->name('users.store');
+        Route::get('/users/{user}/edit',   [AdminController::class, 'editUser'])->name('users.edit');
+        Route::put('/users/{user}',        [AdminController::class, 'updateUser'])->name('users.update');
 
+        // --- إدارة الطلاب (مطابقة لأسماء الواجهة admin.students.*) ---
+        Route::get('/students',                    [AdminController::class, 'studentsIndex'])->name('students.index');
+        Route::get('/students/create',             [AdminController::class, 'createStudent'])->name('students.create');
+        Route::post('/students',                   [AdminController::class, 'storeStudent'])->name('students.store');
+        Route::get('/students/{student}/edit',     [AdminController::class, 'editStudent'])->name('students.edit');
+        Route::put('/students/{student}',          [AdminController::class, 'updateStudent'])->name('students.update');
+        Route::delete('/students/{student}',       [AdminController::class, 'destroyStudent'])->name('students.destroy');
+
+        // --- ترميز وجوه الطلاب ---
         Route::post('/students/encode-faces', [AdminController::class, 'encodeFaces'])->name('students.encode');
 
         // --- إدارة الدورات ---
-        Route::get('/courses', [AdminController::class, 'coursesIndex'])->name('courses.index');
-        Route::get('/courses/create', [AdminController::class, 'coursesCreate'])->name('courses.create');
-        Route::post('/courses', [AdminController::class, 'coursesStore'])->name('courses.store');
+        Route::get('/courses',                [AdminController::class, 'coursesIndex'])->name('courses.index');
+        Route::get('/courses/create',         [AdminController::class, 'coursesCreate'])->name('courses.create');
+        Route::post('/courses',               [AdminController::class, 'coursesStore'])->name('courses.store'); // ✅ أزلنا القوس الزائد
+        Route::get('/courses/{course}/edit',  [AdminController::class, 'editCourse'])->name('courses.edit');
+        Route::put('/courses/{course}',       [AdminController::class, 'updateCourse'])->name('courses.update');
 
-        // ✅ ✅ ✅ الإضافات المطلوبة (دون تغيير محتوى الباقي):
-        Route::get('/courses/{course}/edit', [AdminController::class, 'editCourse'])->name('courses.edit');
-        Route::put('/courses/{course}', [AdminController::class, 'updateCourse'])->name('courses.update');
+        // --- الحضور (admin.attendance.index) ---
+        Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance.index');
 
-        // --- إدارة الطلاب ---
-        Route::get('/students', [AdminController::class, 'studentsIndex'])->name('students.index');
-        Route::get('/students/create', [AdminController::class, 'createStudent'])->name('students.create');
-        Route::post('/students', [AdminController::class, 'storeStudent'])->name('students.store');
-
-        // ✅✅✅ إدارة الجداول (Schedules) — الإضافة الجديدة
+        // --- الجداول (Schedules) ---
         Route::resource('schedules', ScheduleController::class);
     });
 
+/*
+|--------------------------------------------------------------------------
+| مجموعة المعلّم (Teacher)
+|--------------------------------------------------------------------------
+*/
 Route::middleware(['auth', 'verified', 'role:teacher'])
     ->prefix('teacher')
     ->name('teacher.')
     ->group(function () {
         Route::get('/dashboard', [TeacherController::class, 'dashboard'])->name('dashboard');
-        Route::get('/courses/{course}', [TeacherController::class, 'showCourse'])->name('courses.show');
-        Route::get('/students/create', [TeacherController::class, 'createStudent'])->name('students.create');
-        Route::post('/students', [TeacherController::class, 'storeStudent'])->name('students.store');
 
-        // In routes/web.php Teacher's Group
-        Route::get('teacher/courses/create', [TeacherController::class, 'coursesCreate'])->name('courses.create');
-        Route::post('/courses', [TeacherController::class, 'coursesStore'])->name('courses.store');
+        Route::get('/courses/{course}', [TeacherController::class, 'showCourse'])->name('courses.show');
+        Route::get('/students/create',  [TeacherController::class, 'createStudent'])->name('students.create');
+        Route::post('/students',        [TeacherController::class, 'storeStudent'])->name('students.store');
+
+        // لا تكرر "teacher/" داخل المجموعة لأنها من الـ prefix
+        Route::get('/courses/create',           [TeacherController::class, 'coursesCreate'])->name('courses.create');
+        Route::post('/courses',                 [TeacherController::class, 'coursesStore'])->name('courses.store');
         Route::post('/courses/{course}/enroll', [TeacherController::class, 'enrollStudent'])->name('courses.enroll');
 
-        // --- Add this new route for storing a schedule ---
+        // الجداول الخاصة بالمعلم
         Route::post('/courses/{course}/schedules', [TeacherController::class, 'storeSchedule'])->name('schedules.store');
-        // --- Add these two new routes for the attendance session ---
+
+        // جلسة الحضور
         Route::get('/courses/{course}/attendance', [TeacherController::class, 'startAttendanceSession'])->name('attendance.start');
-        Route::post('/attendance/mark', [TeacherController::class, 'markAttendance'])->name('attendance.mark');
+        Route::post('/attendance/mark',            [TeacherController::class, 'markAttendance'])->name('attendance.mark');
     });
 
-// 👇 مجموعة الطالب
+/*
+|--------------------------------------------------------------------------
+| مجموعة الطالب (Student)
+|--------------------------------------------------------------------------
+*/
 Route::middleware(['auth', 'verified', 'role:student'])
     ->prefix('student')
     ->name('student.')
     ->group(function () {
-        Route::get('/dashboard', [StudentController::class, 'dashboard'])->name('dashboard');
+        Route::get('/dashboard',          [StudentController::class, 'dashboard'])->name('dashboard');
+        Route::get('/courses/{course}',   [StudentController::class, 'showCourse'])->name('courses.show');
     });
 
-// 👇 عرض الدورات للطالب
-Route::middleware(['auth', 'verified', 'role:student'])
-    ->prefix('student')
-    ->name('student.')
-    ->group(function () {
-        Route::get('/courses/{course}', [StudentController::class, 'showCourse'])->name('courses.show');
-    });
-
-// 🔑 التوجيه بعد تسجيل الدخول حسب الدور
+/*
+|--------------------------------------------------------------------------
+| التوجيه بعد تسجيل الدخول حسب الدور
+|--------------------------------------------------------------------------
+*/
 Route::get('/dashboard', function () {
     $user = Auth::user();
 
-    if ($user->role === 'admin') {
-        return redirect()->route('admin.dashboard');
-    } elseif ($user->role === 'teacher') {
-        return redirect()->route('teacher.dashboard');
-    } elseif ($user->role === 'student') {
-        return redirect()->route('student.dashboard');
-    }
+    if ($user->role === 'admin')   return redirect()->route('admin.dashboard');
+    if ($user->role === 'teacher') return redirect()->route('teacher.dashboard');
+    if ($user->role === 'student') return redirect()->route('student.dashboard');
 
     return redirect('/');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
+/*
+|--------------------------------------------------------------------------
+| الملف الشخصي + مصادقات
+|--------------------------------------------------------------------------
+*/
 Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::get('/profile',  [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile',[ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile',[ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
 require __DIR__ . '/auth.php';
