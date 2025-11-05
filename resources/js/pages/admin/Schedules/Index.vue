@@ -13,7 +13,8 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 const props = defineProps({
   schedules: { type: Object, default: () => ({ data: [], links: [] }) },
   courses:   { type: Array,  default: () => [] },
-  filters:   { type: Object, default: () => ({ course: '', day: '', q: '' }) },
+  // قد تأتي من السيرفر بأسماء course_id/search — فندعم الحالتين
+  filters:   { type: Object, default: () => ({ course: '', course_id: '', day: '', q: '', search: '' }) },
   can:       { type: Object, default: () => ({ create: true, edit: true, delete: true }) },
 })
 
@@ -32,17 +33,18 @@ function getPageProps() {
 const flash     = computed(() => getPageProps().flash ?? {})
 const authUser  = computed(() => getPageProps().auth?.user ?? null)
 
-// Filter form
+// Filter form (ندعم كلا الاسمين من السيرفر)
 const filterForm = useForm({
-  course: props.filters.course ?? '',
+  course: props.filters.course ?? props.filters.course_id ?? '',
   day:    props.filters.day ?? '',
-  q:      props.filters.q ?? '',
+  q:      props.filters.q ?? props.filters.search ?? '',
 })
 
 // UI states
 const confirming = ref(false)
 const toDeleteId = ref(null)
-const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+// ✅ بدون Friday
+const days = ['Saturday','Sunday','Monday','Tuesday','Wednesday','Thursday']
 
 const courseMenuOpen = ref(false)
 const dayMenuOpen    = ref(false)
@@ -66,26 +68,41 @@ function urlFor(name, params = null) {
 }
 function fallbackFor(name, params = null) {
   switch (name) {
-    case 'admin.schedules.index':   return '/admin/schedules'
-    case 'admin.schedules.create':  return '/admin/schedules/create'
-    case 'admin.schedules.edit':    return `/admin/schedules/${typeof params === 'object' ? params.id ?? '' : params}/edit`
-    case 'admin.schedules.destroy': return `/admin/schedules/${typeof params === 'object' ? params.id ?? '' : params}`
-    case 'admin.schedules.export':  return '/admin/schedules/export'
-    default:                        return '/admin/schedules'
+    case 'admin.schedules.index':     return '/admin/schedules'
+    case 'admin.schedules.create':    return '/admin/schedules/create'
+    case 'admin.schedules.edit':      return `/admin/schedules/${typeof params === 'object' ? params.id ?? '' : params}/edit`
+    case 'admin.schedules.destroy':   return `/admin/schedules/${typeof params === 'object' ? params.id ?? '' : params}`
+    case 'admin.schedules.export':    return '/admin/schedules/export'
+    case 'admin.schedules.exportPdf': return '/admin/schedules/export-pdf' // ✅ جديد
+    default:                          return '/admin/schedules'
   }
 }
 
-// Actions
+// === Actions ===
+// نحول مفاتيح الواجهة إلى مفاتيح الكنترولر
+function buildParams() {
+  const params = {
+    course_id: filterForm.course || undefined,
+    day:       filterForm.day || undefined,
+    search:    filterForm.q || undefined,
+  }
+  // إزالة undefined حتى لا تُرسل في الكويري
+  return Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== undefined && v !== ''))
+}
+
 function applyFilters(e) {
   e?.preventDefault?.()
-  filterForm.get(urlFor('admin.schedules.index'), { preserveState: true, replace: true })
+  const params = buildParams()
+  Inertia.get(urlFor('admin.schedules.index'), params, { preserveState: true, replace: true })
 }
+
 function resetFilters() {
   filterForm.course = ''
   filterForm.day = ''
   filterForm.q = ''
   applyFilters()
 }
+
 function confirmDelete(id) { toDeleteId.value = id; confirming.value = true }
 function cancelDelete()    { confirming.value = false; toDeleteId.value = null }
 function deleteNow() {
@@ -95,7 +112,20 @@ function deleteNow() {
   })
 }
 function goto(url) { if (url) Inertia.visit(url, { preserveState: true }) }
-function exportCsv() { window.location.href = urlFor('admin.schedules.export') }
+
+// ✅ Export CSV مع تمرير نفس الفلاتر
+function exportCsv() {
+  const params = new URLSearchParams(buildParams()).toString()
+  const url = urlFor('admin.schedules.export') + (params ? `?${params}` : '')
+  window.open(url, '_blank')
+}
+
+// ✅ Export PDF مع نفس الفلاتر
+function exportPdf() {
+  const params = new URLSearchParams(buildParams()).toString()
+  const url = urlFor('admin.schedules.exportPdf') + (params ? `?${params}` : '')
+  window.open(url, '_blank')
+}
 
 // Dropdown helpers
 function toggleCourseMenu(){ courseMenuOpen.value = !courseMenuOpen.value; if (courseMenuOpen.value) dayMenuOpen.value = false }
@@ -145,6 +175,17 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocumentClick))
               <path d="M5 20a1 1 0 011-1h12a1 1 0 110 2H6a1 1 0 01-1-1z"/>
             </svg>
             Export CSV
+          </button>
+
+          <!-- ✅ زر Export PDF الجديد -->
+          <button
+            @click="exportPdf"
+            class="neutral-button inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M6 2h9l5 5v15a1 1 0 01-1 1H6a1 1 0 01-1-1V3a1 1 0 011-1z"/>
+            </svg>
+            Export PDF
           </button>
         </div>
       </div>
@@ -241,7 +282,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocumentClick))
             <input
               v-model="filterForm.q"
               type="text"
-              placeholder="Course name or note"
+              placeholder="Course name"
               class="w-full rounded-lg border border-blue-100 bg-white px-3 py-2 text-sm shadow-sm focus:ring-2 focus:ring-blue-200 h-9"
             />
             <svg class="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-600/80" viewBox="0 0 24 24" fill="none">
@@ -280,20 +321,26 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocumentClick))
         <thead class="bg-blue-600 text-blue-100">
           <tr>
             <th class="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-wider">Course</th>
+            <!-- ✅ عمود المعلّم -->
+            <th class="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-wider">Teacher</th>
+            <!-- ✅ عمود القاعة -->
+            <th class="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-wider">Classroom</th>
             <th class="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-wider">Day</th>
             <th class="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-wider">Start</th>
             <th class="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-wider">End</th>
-            <th class="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-wider">Note</th>
             <th class="px-6 py-3 text-right text-[11px] font-semibold uppercase tracking-wider">Actions</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-blue-50 bg-white">
           <tr v-for="s in schedules.data" :key="s.id" class="hover:bg-[#f6fbff]">
             <td class="px-6 py-4 font-medium text-blue-900">{{ s.course?.name ?? '-' }}</td>
+            <!-- ✅ عرض اسم المعلّم -->
+            <td class="px-6 py-4 text-blue-700">{{ s.teacher?.name ?? '-' }}</td>
+            <!-- ✅ عرض اسم القاعة -->
+            <td class="px-6 py-4 text-blue-700">{{ s.classroom?.name ?? '-' }}</td>
             <td class="px-6 py-4 text-blue-700">{{ s.day_of_week }}</td>
             <td class="px-6 py-4 text-blue-700">{{ s.start_time }}</td>
             <td class="px-6 py-4 text-blue-700">{{ s.end_time }}</td>
-            <td class="px-6 py-4 text-blue-700">{{ s.note ?? '-' }}</td>
             <td class="px-6 py-4 text-right">
               <div class="flex items-center justify-end gap-2">
                 <Link
@@ -315,7 +362,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocumentClick))
           </tr>
 
           <tr v-if="!schedules.data || schedules.data.length === 0">
-            <td colspan="6" class="px-6 py-8 text-center text-blue-500">No schedules found.</td>
+            <!-- ✅ تعديل colspan ليطابق عدد الأعمدة الجديد (7 أعمدة بدون Note) -->
+            <td colspan="7" class="px-6 py-8 text-center text-blue-500">No schedules found.</td>
           </tr>
         </tbody>
       </table>

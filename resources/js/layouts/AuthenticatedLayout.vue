@@ -15,15 +15,16 @@ const adminLinks = [
   { route: 'admin.courses.index', label: 'Course Management', icon: 'fas fa-book' },
   { route: 'admin.students.index', label: 'Student Management', icon: 'fas fa-user-graduate' },
   { route: 'admin.schedules.index', label: 'Schedule Management', icon: 'fas fa-calendar-alt' },
-  { route: 'admin.attendance.index', label: 'Attendance ', icon: 'fas fa-clipboard-check' }, // ✅ تمت الإضافة
+  { route: 'admin.attendance.index', label: 'Attendance', icon: 'fas fa-clipboard-check' },
 ]
 
 const teacherLinks = [
-  { route: 'teacher.dashboard', label: 'المواد الدراسية', icon: 'fas fa-chalkboard' },
-  { route: 'teacher.courses.create', label: 'اضافة مادة جديدة', icon: 'fas fa-folder-plus' },
-  { route: 'teacher.students.create', label: 'إضافة طالب جديد', icon: 'fas fa-user-plus' },
+  { route: 'teacher.dashboard', label: 'Courses', icon: 'fas fa-chalkboard' },
+  { route: 'teacher.courses.create', label: 'Add New Course', icon: 'fas fa-folder-plus' },
+  { route: 'teacher.students.create', label: 'Add New Student', icon: 'fas fa-user-plus' },
 ]
 
+// ✅ Student pages in English
 const studentLinks = [
   { route: 'student.dashboard', label: 'Dashboard', icon: 'fas fa-home' },
 ]
@@ -34,6 +35,14 @@ const getLinks = computed(() => {
   if (userRole.value === 'student') return studentLinks
   return []
 })
+
+// ✅ Logo route adapts by role
+const logoRoute = computed(() => {
+  if (userRole.value === 'admin') return 'admin.dashboard'
+  if (userRole.value === 'teacher') return 'teacher.dashboard'
+  if (userRole.value === 'student') return 'student.dashboard'
+  return 'student.dashboard'
+})
 </script>
 
 <template>
@@ -42,7 +51,7 @@ const getLinks = computed(() => {
     <aside class="sidebar-gradient sidebar-glass flex w-64 flex-shrink-0 flex-col text-white shadow-2xl">
       <!-- Logo -->
       <div class="logo-section flex h-16 items-center justify-center border-b border-blue-700/50">
-        <Link :href="route('admin.dashboard')">
+        <Link :href="route(logoRoute)">
           <ApplicationLogo class="block h-9 w-auto text-white/90" />
         </Link>
       </div>
@@ -85,8 +94,8 @@ const getLinks = computed(() => {
                 <svg class="ms-2 -me-0.5 h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
                   fill="currentColor">
                   <path fill-rule="evenodd"
-                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                    clip-rule="evenodd" />
+                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                        clip-rule="evenodd" />
                 </svg>
               </button>
             </template>

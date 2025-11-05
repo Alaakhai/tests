@@ -9,21 +9,30 @@ use App\Models\Attendance;
 use App\Models\User;
 use App\Models\Course;
 use App\Models\Schedule;
+use App\Models\Classroom;
 
 class AttendanceController extends Controller
 {
     public function index(Request $request)
     {
         $filters = [
-            'date'        => $request->input('date'),
-            'student_id'  => $request->input('student_id'),
-            'course_id'   => $request->input('course_id'),
-            'schedule_id' => $request->input('schedule_id'),
-            'is_present'  => $request->input('is_present'),
+            'date'         => $request->input('date'),
+            'student_id'   => $request->input('student_id'),
+            'course_id'    => $request->input('course_id'),
+            'schedule_id'  => $request->input('schedule_id'),
+            'teacher_id'   => $request->input('teacher_id'),
+            'classroom_id' => $request->input('classroom_id'),
+            'is_present'   => $request->input('is_present'),
         ];
 
         $query = Attendance::query()
-            ->with(['student', 'schedule'])
+            ->with([
+                'student',
+                'schedule',
+                'schedule.course',
+                'schedule.teacher',
+                'schedule.classroom',
+            ])
             ->latest('attendance_date');
 
         if (!empty($filters['date'])) {
@@ -44,28 +53,44 @@ class AttendanceController extends Controller
             });
         }
 
+        // ✅ فلاتر المعلم والقاعة
+        if (!empty($filters['teacher_id'])) {
+            $query->whereHas('schedule', function ($q) use ($filters) {
+                $q->where('teacher_id', $filters['teacher_id']);
+            });
+        }
+
+        if (!empty($filters['classroom_id'])) {
+            $query->whereHas('schedule', function ($q) use ($filters) {
+                $q->where('classroom_id', $filters['classroom_id']);
+            });
+        }
+
         if ($filters['is_present'] !== null && $filters['is_present'] !== '') {
             $query->where('is_present', (int) $filters['is_present']);
         }
 
         $records = $query->paginate(15)->withQueryString();
 
-        $students  = User::where('role', 'student')->select('id', 'name')->get();
-        $courses   = Course::select('id', 'name')->get();
+        $students   = User::where('role', 'student')->select('id', 'name')->get();
+        $courses    = Course::select('id', 'name')->get();
+        $teachers   = User::where('role', 'teacher')->select('id','name')->orderBy('name')->get();
+        $classrooms = Classroom::select('id','name')->orderBy('name')->get();
 
-        // استخدام الأعمدة المتوفرة فعليًا في جدول schedules
+        // يمكن إبقاء قائمة الجداول كما هي أو تمرير مزيد من البيانات حسب حاجتك
         $schedules = Schedule::query()
             ->select('id', 'day_of_week', 'start_time', 'end_time')
             ->orderBy('id', 'desc')
             ->get();
 
-        // ملاحظة: المسار هنا صغير "admin" ليتطابق مع مجلدك Pages/admin/Attendance/Index.vue
         return Inertia::render('admin/Attendance/Index', [
-            'records'   => $records,
-            'filters'   => $filters,
-            'students'  => $students,
-            'courses'   => $courses,
-            'schedules' => $schedules,
+            'records'     => $records,
+            'filters'     => $filters,
+            'students'    => $students,
+            'courses'     => $courses,
+            'teachers'    => $teachers,    // ✅ جديد
+            'classrooms'  => $classrooms,  // ✅ جديد
+            'schedules'   => $schedules,
         ]);
     }
 }

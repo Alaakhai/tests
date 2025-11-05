@@ -8,15 +8,19 @@ const props = defineProps({
   filters: Object,
   students: Array,
   courses: Array,
-  schedules: Array
+  schedules: Array,
+  teachers: Array,   // ✅ جديد
+  classrooms: Array  // ✅ جديد
 })
 
 const form = reactive({
-  date:        props.filters?.date ?? '',
-  student_id:  props.filters?.student_id ?? '',
-  course_id:   props.filters?.course_id ?? '',
-  schedule_id: props.filters?.schedule_id ?? '',
-  is_present:  props.filters?.is_present ?? ''
+  date:         props.filters?.date ?? '',
+  student_id:   props.filters?.student_id ?? '',
+  course_id:    props.filters?.course_id ?? '',
+  schedule_id:  props.filters?.schedule_id ?? '',
+  teacher_id:   props.filters?.teacher_id ?? '',   // ✅ جديد
+  classroom_id: props.filters?.classroom_id ?? '', // ✅ جديد
+  is_present:   props.filters?.is_present ?? ''
 })
 
 function applyFilters() {
@@ -32,6 +36,8 @@ function resetFilters() {
   form.student_id = ''
   form.course_id = ''
   form.schedule_id = ''
+  form.teacher_id = ''     // ✅ جديد
+  form.classroom_id = ''   // ✅ جديد
   form.is_present = ''
   applyFilters()
 }
@@ -60,13 +66,13 @@ function fmtDate(d) {
         <h1 class="text-2xl font-semibold text-blue-900">Attendance Records</h1>
       </div>
 
-      <!-- 🔷 Filters Box (Darker Blue Gradient) -->
+      <!-- 🔷 Filters Box -->
       <div
         class="rounded-2xl shadow-lg p-5 border border-blue-400 flex justify-center 
                bg-gradient-to-r from-[#60a5fa] via-[#3b82f6] to-[#2563eb] 
                text-white transition-all duration-300"
       >
-        <div class="flex flex-wrap justify-center items-end gap-3 w-full max-w-5xl">
+        <div class="flex flex-wrap justify-center items-end gap-3 w-full max-w-6xl">
 
           <!-- Date -->
           <div class="flex flex-col w-[160px]">
@@ -105,6 +111,32 @@ function fmtDate(d) {
             </select>
           </div>
 
+          <!-- ✅ Teacher -->
+          <div class="flex flex-col w-[160px]">
+            <label class="text-[11px] mb-1 font-semibold text-white">Teacher</label>
+            <select
+              v-model="form.teacher_id"
+              class="h-9 text-xs rounded-lg border border-blue-100 bg-white text-gray-800 px-3 
+                     shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-300"
+            >
+              <option value="">All</option>
+              <option v-for="t in teachers" :key="t.id" :value="t.id">{{ t.name }}</option>
+            </select>
+          </div>
+
+          <!-- ✅ Classroom -->
+          <div class="flex flex-col w-[160px]">
+            <label class="text-[11px] mb-1 font-semibold text-white">Classroom</label>
+            <select
+              v-model="form.classroom_id"
+              class="h-9 text-xs rounded-lg border border-blue-100 bg-white text-gray-800 px-3 
+                     shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-300"
+            >
+              <option value="">All</option>
+              <option v-for="r in classrooms" :key="r.id" :value="r.id">{{ r.name }}</option>
+            </select>
+          </div>
+
           <!-- Schedule -->
           <div class="flex flex-col w-[170px]">
             <label class="text-[11px] mb-1 font-semibold text-white">Schedule</label>
@@ -134,25 +166,16 @@ function fmtDate(d) {
             </select>
           </div>
 
-          <!-- 🔘 Buttons -->
+          <!-- Buttons -->
           <div class="flex gap-2 mt-1">
-
-            <!-- ✅ Apply Button (Soft Green) -->
             <button
               @click="applyFilters"
               class="h-9 min-w-[85px] rounded-lg bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 
                      text-white font-semibold text-xs px-4 shadow-md hover:shadow-lg 
                      hover:from-green-500 hover:to-emerald-600 active:scale-[0.97] transition-all duration-300"
             >
-              <span class="inline-flex items-center gap-1">
-                <svg xmlns='http://www.w3.org/2000/svg' class='w-4 h-4' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
-                  <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 4v16m8-8H4'/>
-                </svg>
-                Apply
-              </span>
+              Apply
             </button>
-
-            <!-- ❌ Reset Button (Soft Red) -->
             <button
               @click="resetFilters"
               type="button"
@@ -160,12 +183,7 @@ function fmtDate(d) {
                      text-white font-semibold text-xs px-4 shadow-md hover:shadow-lg 
                      hover:from-rose-500 hover:to-red-600 active:scale-[0.97] transition-all duration-300"
             >
-              <span class="inline-flex items-center gap-1">
-                <svg xmlns='http://www.w3.org/2000/svg' class='w-4 h-4' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
-                  <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'/>
-                </svg>
-                Reset
-              </span>
+              Reset
             </button>
           </div>
 
@@ -173,38 +191,33 @@ function fmtDate(d) {
       </div>
 
       <!-- Table -->
-      <div class="bg-white dark:bg-gray-900 rounded-2xl shadow overflow-x-auto border border-blue-100">
+      <div class="bg-white rounded-2xl shadow overflow-x-auto border border-blue-100">
         <table class="min-w-full text-sm">
           <thead>
-            <tr class="border-b dark:border-gray-700 bg-blue-600 text-blue-100">
+            <tr class="border-b bg-blue-600 text-blue-100">
               <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider">#</th>
               <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider">Date</th>
               <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider">Student</th>
-              <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider">Schedule</th>
+              <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider">Course</th>
+              <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider">Teacher</th> <!-- ✅ -->
+              <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider">Classroom</th> <!-- ✅ -->
               <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider">Status</th>
               <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider">Check-in</th>
               <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider">Check-out</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in data" :key="row.id" class="border-b dark:border-gray-800 odd:bg-white even:bg-[#f6fbff]">
+            <tr v-for="row in data" :key="row.id" class="border-b odd:bg-white even:bg-[#f6fbff]">
               <td class="px-4 py-3 font-semibold text-blue-900">{{ row.id }}</td>
               <td class="px-4 py-3 text-blue-700">{{ fmtDate(row.attendance_date ?? row.created_at) }}</td>
-              <td class="px-4 py-3 text-blue-700">
-                <div class="flex items-center gap-2">
-                  <span>{{ row.student?.name ?? '—' }}</span>
-                  <span class="text-[11px] text-blue-400">(#{{ row.student_id }})</span>
-                </div>
-              </td>
-              <td class="px-4 py-3 text-blue-700">
-                {{ row.schedule ? scheduleLabel(row.schedule) : ('Schedule #' + (row.schedule_id ?? '—')) }}
-              </td>
+              <td class="px-4 py-3 text-blue-700">{{ row.student?.name ?? '—' }}</td>
+              <td class="px-4 py-3 text-blue-700">{{ row.schedule?.course?.name ?? '—' }}</td>
+              <td class="px-4 py-3 text-blue-700">{{ row.schedule?.teacher?.name ?? '—' }}</td> <!-- ✅ -->
+              <td class="px-4 py-3 text-blue-700">{{ row.schedule?.classroom?.name ?? '—' }}</td> <!-- ✅ -->
               <td class="px-4 py-3">
                 <span
-                  :class="[
-                    'px-2 py-1 rounded-lg text-[11px] font-semibold inline-flex items-center justify-center',
-                    row.is_present ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                  ]"
+                  :class="[ 'px-2 py-1 rounded-lg text-[11px] font-semibold inline-flex items-center justify-center',
+                    row.is_present ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700']"
                 >
                   {{ row.is_present ? 'Present' : 'Absent' }}
                 </span>
@@ -214,7 +227,7 @@ function fmtDate(d) {
             </tr>
 
             <tr v-if="!data.length">
-              <td colspan="7" class="px-4 py-8 text-center text-blue-400">
+              <td colspan="9" class="px-4 py-8 text-center text-blue-400">
                 <div class="flex flex-col items-center">
                   <span class="text-4xl mb-2">🚫</span>
                   <p class="text-lg">No records found.</p>
@@ -232,9 +245,7 @@ function fmtDate(d) {
           :key="i"
           :href="l.url || '#'"
           class="px-3 py-1 rounded-lg border"
-          :class="[
-            l.active ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-gray-900 border-blue-200'
-          ]"
+          :class="[ l.active ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-blue-200' ]"
           v-html="l.label"
           preserve-scroll
           preserve-state

@@ -21,12 +21,10 @@ class AdminController extends Controller
     // -------------------- DASHBOARD --------------------
     public function dashboard()
     {
-        // -------- إحصائيات عامة --------
         $totalStudents = User::where('role', UserRole::STUDENT)->count();
         $totalTeachers = User::where('role', UserRole::TEACHER)->count();
         $totalCourses = Course::count();
 
-        // -------- آخر 5 حضور --------
         $recentCheckIns = Attendance::with('student')
             ->where('is_present', true)
             ->orderBy('attended_at', 'desc')
@@ -39,7 +37,6 @@ class AdminController extends Controller
                 ];
             });
 
-        // -------- إشعارات الطلاب الذين تجاوزوا الغياب --------
         $studentsExceeded = DB::table('attendances')
             ->select('student_id', DB::raw('COUNT(*) as total_absences'))
             ->where('is_present', false)
@@ -58,12 +55,11 @@ class AdminController extends Controller
             ];
         });
 
-        // -------- بيانات الرسم البياني الأسبوعي --------
         $labels = [];
         $data = [];
         for ($i = 6; $i >= 0; $i--) {
             $day = Carbon::today()->subDays($i);
-            $labels[] = $day->format('D'); // اسم اليوم
+            $labels[] = $day->format('D');
             $total = Attendance::whereDate('attendance_date', $day)->count();
             $present = Attendance::whereDate('attendance_date', $day)
                 ->where('is_present', true)
@@ -202,12 +198,26 @@ class AdminController extends Controller
     }
 
     // -------------------- COURSES --------------------
-    public function coursesIndex()
+    public function coursesIndex(Request $request)
     {
-        $courses = Course::with('teacher')->latest()->get();
+        $q = trim((string) $request->get('q', ''));
+
+        $courses = Course::query()
+            ->with('teacher:id,name')
+            ->when($q !== '', function ($builder) use ($q) {
+                $builder->where(function ($b) use ($q) {
+                    $b->where('name', 'like', "%{$q}%")
+                      ->orWhere('code', 'like', "%{$q}%")
+                      ->orWhereHas('teacher', fn($t) => $t->where('name', 'like', "%{$q}%"));
+                });
+            })
+            ->orderBy('name')
+            ->paginate(10)
+            ->withQueryString();
 
         return Inertia::render('admin/courses/Index', [
             'courses' => $courses,
+            'filters' => ['q' => $q],
         ]);
     }
 
@@ -234,8 +244,6 @@ class AdminController extends Controller
         return redirect()->route('admin.courses.index')->with('success', 'Course created successfully.');
     }
 
-    // ===== الإضافات التي أضفتها =====
-
     public function editCourse(Course $course)
     {
         $teachers = User::where('role', UserRole::TEACHER)->orderBy('name')->get();
@@ -255,23 +263,35 @@ class AdminController extends Controller
             'teacher_id' => ['required', 'integer', Rule::exists('users', 'id')->where('role', 'teacher')],
         ]);
 
-        $course->update($request->only([
-            'name', 'code', 'description', 'teacher_id'
-        ]));
+        $course->update($request->only(['name', 'code', 'description', 'teacher_id']));
 
         return redirect()->route('admin.courses.index')->with('success', 'Course updated successfully.');
     }
 
-    // -------------------- STUDENTS --------------------
-    public function studentsIndex()
+    public function destroyCourse(Course $course)
     {
+        $course->delete();
+        return back()->with('success', 'Course deleted successfully.');
+    }
+
+    // -------------------- STUDENTS --------------------
+    public function studentsIndex(Request $request)
+    {
+        $q = trim((string) $request->get('q', ''));
+
         $students = User::where('role', UserRole::STUDENT)
             ->with('courses', 'photos')
+            ->when($q !== '', function ($builder) use ($q) {
+                $builder->where('name', 'like', "%{$q}%")
+                        ->orWhere('email', 'like', "%{$q}%");
+            })
             ->orderBy('name')
-            ->get();
+            ->paginate(10)
+            ->withQueryString();
 
         return Inertia::render('admin/students/Index', [
             'students' => $students,
+            'filters' => ['q' => $q],
         ]);
     }
 
@@ -304,6 +324,53 @@ class AdminController extends Controller
             }
         }
 
-        return redirect()->route('admin.dashboard')->with('success', 'Student created successfully with photos.');
+        return redirect()->route('admin.students.index')->with('success', 'Student created successfully.');
+    }
+
+    public function editStudent(User $student)
+    {
+        return Inertia::render('admin/students/Edit', [
+            'student' => $student->load('photos'),
+        ]);
+    }
+
+    public function updateStudent(Request $request, User $student)
+    {
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => ['required', 'email', Rule::unique('users')->ignore($student->id)],
+            'password' => ['nullable', 'confirmed', Rules\Password::defaults()],
+            'photos' => 'nullable|array',
+            'photos.*' => 'image|mimes:jpeg,png,jpg|max:2048',
+        ]);
+
+        $student->update([
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'password' => !empty($data['password'])
+                ? Hash::make($data['password'])
+                : $student->password,
+        ]);
+
+        if ($request->hasFile('photos')) {
+            foreach ($request->file('photos') as $photo) {
+                $path = $photo->store('student_photos', 'public');
+                $student->photos()->create(['photo_path' => $path]);
+            }
+        }
+
+        return redirect()->route('admin.students.index')->with('success', 'Student updated successfully.');
+    }
+
+    public function destroyStudent(User $student)
+    {
+        // حذف صور الطالب
+        foreach ($student->photos as $photo) {
+            \Storage::disk('public')->delete($photo->photo_path);
+            $photo->delete();
+        }
+
+        $student->delete();
+        return back()->with('success', 'Student deleted successfully.');
     }
 }

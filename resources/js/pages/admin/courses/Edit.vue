@@ -1,45 +1,47 @@
 <script setup>
-import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue'
+import { Head, Link, useForm } from '@inertiajs/vue3'
 
-defineProps({
-  teachers: Array,
-});
+// ✅ استقبال البيانات من Laravel
+const props = defineProps({
+  course: { type: Object, required: true },
+  teachers: { type: Array, required: true },
+})
 
+// ✅ إنشاء الفورم باستخدام useForm
 const form = useForm({
-  name: '',
-  code: '',
-  description: '',
-  teacher_id: null,
-});
+  name: props.course.name,
+  code: props.course.code,
+  description: props.course.description,
+  teacher_id: props.course.teacher_id,
+})
 
-const submit = () => {
-  form.post(route('admin.courses.store'));
-};
+// ✅ إرسال البيانات عند الحفظ
+function updateCourse() {
+  form.put(route('admin.courses.update', props.course.id))
+}
 </script>
 
 <template>
   <AuthenticatedLayout>
-    <Head title="إضافة مادة جديدة" />
+    <Head title="تعديل المادة" />
 
     <div class="max-w-2xl mx-auto mt-10 p-10 bg-white rounded-3xl shadow-2xl border border-indigo-100 form-card-prominent">
       
       <div class="flex items-center mb-8 border-b pb-4 border-indigo-200">
-        <i class="fas fa-book-open text-3xl text-indigo-700 mr-3"></i>
-        <h2 class="text-3xl font-extrabold text-gray-900 leading-tight">إضافة مادة جديدة</h2>
+        <i class="fas fa-edit text-3xl text-indigo-700 mr-3"></i>
+        <h2 class="text-3xl font-extrabold text-gray-900 leading-tight">تعديل بيانات المادة</h2>
       </div>
 
-      <form @submit.prevent="submit" class="space-y-6">
+      <form @submit.prevent="updateCourse" class="space-y-6">
         
         <!-- اسم المادة -->
         <div>
-          <label for="name" class="block mb-2 font-bold text-gray-800">اسم المادة</label>
+          <label class="block mb-2 font-bold text-gray-800">اسم المادة</label>
           <input
-            id="name"
             v-model="form.name"
             type="text"
             class="w-full input-field-prominent"
-            placeholder="أدخل اسم المادة"
             required
           />
           <div v-if="form.errors.name" class="text-red-600 text-sm mt-1 font-semibold">{{ form.errors.name }}</div>
@@ -47,23 +49,36 @@ const submit = () => {
 
         <!-- كود المادة -->
         <div>
-          <label for="code" class="block mb-2 font-bold text-gray-800">كود المادة</label>
+          <label class="block mb-2 font-bold text-gray-800">كود المادة</label>
           <input
-            id="code"
             v-model="form.code"
             type="text"
             class="w-full input-field-prominent"
-            placeholder="أدخل كود المادة"
             required
           />
           <div v-if="form.errors.code" class="text-red-600 text-sm mt-1 font-semibold">{{ form.errors.code }}</div>
         </div>
 
+        <!-- المعلّم -->
+        <div>
+          <label class="block mb-2 font-bold text-gray-800">المعلم المسؤول</label>
+          <select
+            v-model="form.teacher_id"
+            class="w-full input-field-prominent select-field-prominent"
+            required
+          >
+            <option disabled value="">اختر المعلم</option>
+            <option v-for="t in props.teachers" :key="t.id" :value="t.id">
+              {{ t.name }}
+            </option>
+          </select>
+          <div v-if="form.errors.teacher_id" class="text-red-600 text-sm mt-1 font-semibold">{{ form.errors.teacher_id }}</div>
+        </div>
+
         <!-- الوصف -->
         <div>
-          <label for="description" class="block mb-2 font-bold text-gray-800">الوصف</label>
+          <label class="block mb-2 font-bold text-gray-800">الوصف</label>
           <textarea
-            id="description"
             v-model="form.description"
             rows="3"
             placeholder="اكتب وصفًا مختصرًا (اختياري)"
@@ -71,32 +86,24 @@ const submit = () => {
           ></textarea>
         </div>
 
-        <!-- المعلم -->
-        <div>
-          <label for="teacher_id" class="block mb-2 font-bold text-gray-800">المعلم</label>
-          <select
-            id="teacher_id"
-            v-model="form.teacher_id"
-            class="w-full input-field-prominent select-field-prominent"
-            required
+        <!-- الأزرار -->
+        <div class="flex justify-between items-center mt-6">
+          <Link
+            :href="route('admin.courses.index')"
+            class="bg-gray-200 text-gray-700 px-6 py-3 rounded-xl font-semibold hover:bg-gray-300 transition-all"
           >
-            <option disabled value="">اختر المعلم</option>
-            <option v-for="teacher in teachers" :key="teacher.id" :value="teacher.id">
-              {{ teacher.name }}
-            </option>
-          </select>
-          <div v-if="form.errors.teacher_id" class="text-red-600 text-sm mt-1 font-semibold">{{ form.errors.teacher_id }}</div>
-        </div>
+            إلغاء
+          </Link>
 
-        <!-- زر الإرسال -->
-        <button
-          type="submit"
-          :disabled="form.processing"
-          class="w-full py-4 mt-6 text-xl font-extrabold rounded-xl transition-all duration-300 transform hover:-translate-y-1 prominent-submit-button"
-        >
-          <span v-if="form.processing">جاري الحفظ...</span>
-          <span v-else>💾 حفظ المادة</span>
-        </button>
+          <button
+            type="submit"
+            :disabled="form.processing"
+            class="py-4 px-6 text-xl font-extrabold rounded-xl transition-all duration-300 transform hover:-translate-y-1 prominent-submit-button"
+          >
+            <span v-if="form.processing">جاري الحفظ...</span>
+            <span v-else>تحديث المادة 💾</span>
+          </button>
+        </div>
       </form>
     </div>
   </AuthenticatedLayout>
