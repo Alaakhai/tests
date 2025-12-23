@@ -41,4 +41,12 @@ class Attendance extends Model
     {
         return $this->belongsTo(Schedule::class);
     }
+        /**
+     * علاقة OTP (رمز التحقق) بسجل الحضور
+     */
+    public function otp()
+    {
+        return $this->hasOne(\App\Models\AttendanceOtp::class);
+    }
+
 }

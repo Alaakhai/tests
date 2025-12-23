@@ -20,8 +20,7 @@ const adminLinks = [
 
 const teacherLinks = [
   { route: 'teacher.dashboard', label: 'Courses', icon: 'fas fa-chalkboard' },
-  { route: 'teacher.courses.create', label: 'Add New Course', icon: 'fas fa-folder-plus' },
-  { route: 'teacher.students.create', label: 'Add New Student', icon: 'fas fa-user-plus' },
+
 ]
 
 // ✅ Student pages in English
@@ -143,7 +142,7 @@ const logoRoute = computed(() => {
 
 /* Glassmorphism */
 .sidebar-glass {
-  background: rgba(23, 3, 136, 0.9);
+  background: rgba(17, 1, 97, 0.9);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);

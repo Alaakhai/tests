@@ -2,24 +2,26 @@
 
 namespace Database\Factories;
 
-use Illuminate\Database\Eloquent\Factories\Factory;
+use App\Models\Course;
 use App\Models\User;
 use App\Enums\UserRole;
+use Illuminate\Database\Eloquent\Factories\Factory;
 
 class CourseFactory extends Factory
 {
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
+    protected $model = Course::class;
+
     public function definition(): array
     {
         return [
-            'name' => fake()->sentence(3),
-            'code' => fake()->unique()->bothify('CS##??'), // مثال: CS45KL
-            'description' => fake()->paragraph(),
-            'teacher_id' => User::where('role', UserRole::TEACHER)->inRandomOrder()->first()->id,
+            'name' => $this->faker->sentence(3),
+            'code' => $this->faker->unique()->bothify('CS##??'),
+            'description' => $this->faker->paragraph(),
+
+            // ربط الكورس بمدرس (حل نهائي لمشكلة NOT NULL)
+            'teacher_id' => User::factory()->state([
+                'role' => UserRole::TEACHER,
+            ]),
         ];
     }
 }

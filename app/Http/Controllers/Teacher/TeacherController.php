@@ -6,33 +6,27 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
-use App\Models\Course; // Import the Course model
-use App\Models\User; // Import the User model
-use App\Enums\UserRole; // Import the UserRole enum
-use Illuminate\Validation\Rule; // Import Rule for validation
+use App\Models\Course;
+use App\Models\User;
+use App\Enums\UserRole;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Hash;
-// Import the UserRole enum for validation
-use Illuminate\Validation\Rules; // Import Rules for password validation
-use App\Models\Attendance; // Import the Attendance model
-use Carbon\Carbon; // Import Carbon for date handling
-use Illuminate\Support\Facades\Http; // Import Http facade for making HTTP requests
-use App\Models\Schedule; // Import the Schedule model
-use Illuminate\Support\Facades\Log; // Import Log facade for logging errors
-use Illuminate\Support\Str; // Import Str for generating random strings
-use Illuminate\Support\Facades\Mail; // Import Mail facade for sending emails
-use App\Mail\AbsentStudentVerificationMail; // Import the Mailable for absent student verification
-use App\Jobs\SendAbsentVerificationEmail; // Import the job for sending absent verification emails
-
-
+use Illuminate\Validation\Rules;
+use App\Models\Attendance;
+use App\Models\AttendanceOtp;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Http;
+use App\Models\Schedule;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\AbsentStudentVerificationMail;
 
 class TeacherController extends Controller
 {
+    /* ================= DASHBOARD ================= */
     public function dashboard()
     {
-        // Get the currently authenticated user (the teacher)
         $teacher = Auth::user();
-
-        // Load the courses they are teaching using the relationship we defined
         $courses = $teacher->teachingCourses()->get();
 
         return Inertia::render('Teacher/Dashboard', [
@@ -40,236 +34,225 @@ class TeacherController extends Controller
         ]);
     }
 
+    /* ================= COURSES ================= */
     public function showCourse(Course $course)
     {
-        if ($course->teacher_id !== Auth::id()) {
-            abort(403);
-        }
-    
+        abort_if($course->teacher_id !== Auth::id(), 403);
+
         $course->load('students', 'schedules');
-    
-        // Get IDs of students already enrolled
+
         $enrolledStudentIds = $course->students->pluck('id');
-    
-        // Get all students who are not enrolled in this course
+
         $unenrolledStudents = User::where('role', UserRole::STUDENT)
-                                  ->whereNotIn('id', $enrolledStudentIds)
-                                  ->orderBy('name')
-                                  ->get();
-    
+            ->whereNotIn('id', $enrolledStudentIds)
+            ->orderBy('name')
+            ->get();
+
         return Inertia::render('Teacher/ShowCourse', [
             'course' => $course,
             'unenrolledStudents' => $unenrolledStudents,
         ]);
     }
+     public function enrollStudent(Request $request, Course $course)
+    {
+        $request->validate([
+            'student_id' => 'required|exists:users,id',
+        ]);
 
+        $course->students()->attach($request->student_id);
+
+        return back()->with('success', 'تم تسجيل الطالب بنجاح');
+    }
     public function storeSchedule(Request $request, Course $course)
     {
-        // Ensure the authenticated teacher owns this course
-        if ($course->teacher_id !== Auth::id()) {
-            abort(403);
-        }
+        abort_if($course->teacher_id !== Auth::id(), 403);
 
         $request->validate([
-            'day_of_week' => ['required', 'in:Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday'],
-            'start_time' => ['required', 'date_format:H:i'],
-            'end_time' => ['required', 'date_format:H:i', 'after:start_time'],
+            'day_of_week' => ['required'],
+            'start_time'  => ['required'],
+            'end_time'    => ['required', 'after:start_time'],
         ]);
 
         $course->schedules()->create($request->all());
 
-        return redirect()->route('teacher.courses.show', $course->id)->with('success', 'Schedule added successfully.');
+        return back()->with('success', 'Schedule added successfully.');
     }
 
-    // In TeacherController.php
+    /* ================= ATTENDANCE SESSION ================= */
+    public function startAttendanceSession(Course $course)
+    {
+        abort_if($course->teacher_id !== Auth::id(), 403);
 
-public function coursesCreate()
-{
-    // Simply render the creation form view
-    return Inertia::render('Teacher/CreateCourse');
-}
+        $todayName = Carbon::now()->format('l');
+        $schedule = $course->schedules()
+            ->where('day_of_week', $todayName)
+            ->first();
 
-public function coursesStore(Request $request)
-{
-    $request->validate([
-        'name' => 'required|string|max:255',
-        'code' => 'required|string|max:50|unique:courses',
-        'description' => 'nullable|string',
-    ]);
-
-    // Create the course and automatically assign the logged-in teacher's ID
-    Auth::user()->teachingCourses()->create($request->all());
-
-    return redirect()->route('teacher.dashboard')->with('success', 'Course created successfully.');
-}
-
-public function enrollStudent(Request $request, Course $course)
-{
-    if ($course->teacher_id !== Auth::id()) {
-        abort(403);
-    }
-
-    $request->validate([
-        'student_id' => ['required', Rule::exists('users', 'id')->where('role', 'student')],
-    ]);
-
-    // Attach the student to the course
-    $course->students()->attach($request->student_id);
-
-    return redirect()->route('teacher.courses.show', $course->id)->with('success', 'Student enrolled successfully.');
-}
-
-
-public function createStudent()
-{
-    return Inertia::render('Teacher/Students/Create');
-}
-
-/**
- * Store a newly created student in storage.
- */
-public function storeStudent(Request $request)
-{
-    $request->validate([
-        'name' => 'required|string|max:255',
-        'email' => 'required|string|email|max:255|unique:users',
-        'password' => ['required', 'confirmed', Rules\Password::defaults()],
-        'photos' => 'required|array|min:1', // Ensure photos array is present and has at least 1 image
-        'photos.*' => 'image|mimes:jpeg,png,jpg|max:2048', // Validate each photo
-    ]);
-
-    // Create the student first
-    $student = User::create([
-        'name' => $request->name,
-        'email' => $request->email,
-        'password' => Hash::make($request->password),
-        'role' => UserRole::STUDENT,
-    ]);
-
-    // Handle photo uploads
-    if ($request->hasFile('photos')) {
-        foreach ($request->file('photos') as $photo) {
-            // Store the file and get its path
-            // The path will be something like 'student_photos/filename.jpg'
-            $path = $photo->store('student_photos', 'public');
-
-            // Create a record in the student_photos table
-            $student->photos()->create(['photo_path' => $path]);
+        if (!$schedule) {
+            return back()->with('error', 'No schedule today.');
         }
+
+        foreach ($course->students as $student) {
+            Attendance::firstOrCreate([
+                'student_id'      => $student->id,
+                'schedule_id'     => $schedule->id,
+                'attendance_date' => today(),
+            ], [
+                'is_present' => false,
+            ]);
+        }
+
+        $todaysAttendance = Attendance::where('schedule_id', $schedule->id)
+            ->whereDate('attendance_date', today())
+            ->with('student')
+            ->get();
+
+        return Inertia::render('Teacher/Attendance/Session', [
+            'course' => $course,
+            'schedule' => $schedule,
+            'todaysAttendance' => $todaysAttendance,
+        ]);
     }
 
-    return redirect()->route('teacher.dashboard')->with('success', 'Student created successfully with photos.');
-}
-
-public function startAttendanceSession(Course $course)
-{
-    // Ensure the teacher owns the course
-    if ($course->teacher_id !== Auth::id()) {
-        abort(403);
-    }
-
-    // Get the current day and find the corresponding schedule
-// ...
-$todayName = Carbon::now()->format('l'); // e.g., "Tuesday"
-$schedule = $course->schedules()->where('day_of_week', $todayName)->first();
-
-if (!$schedule) {
-    return back()->with('error', "There is no scheduled lecture for this course today ({$todayName}).");
-}
-// ...
-
-    // Get all students enrolled in the course
-    $students = $course->students()->get();
-
-    // Create or find attendance records for today for all students
-    foreach ($students as $student) {
-        Attendance::firstOrCreate(
-            [
-                'student_id' => $student->id,
-                'schedule_id' => $schedule->id,
-                'attendance_date' => Carbon::today(),
-            ],
-            ['is_present' => false] // Default to absent
-        );
-    }
-
-    // Fetch the fresh attendance records for today
-    $todaysAttendance = Attendance::where('schedule_id', $schedule->id)
-                                  ->whereDate('attendance_date', Carbon::today())
-                                  ->with('student')
-                                  ->get();
-
-    return Inertia::render('Teacher/Attendance/Session', [
-        'course' => $course,
-        'schedule' => $schedule,
-        'todaysAttendance' => $todaysAttendance,
-    ]);
-}
-
-public function markAttendance(Request $request)
+    /* ================= FACE RECOGNITION ================= */
+    public function markAttendance(Request $request)
     {
         $request->validate([
-            'image' => 'required|image',
+            'image'       => 'required|image',
             'schedule_id' => 'required|exists:schedules,id',
         ]);
 
         try {
-            // إرسال الصورة إلى Flask API
             $response = Http::attach(
-                'image', file_get_contents($request->file('image')), 'frame.jpg'
-            )->post('http://127.0.0.1:5000/recognize-face'); // تأكد من أن هذا هو عنوان Flask
+                'image',
+                file_get_contents($request->file('image')),
+                'frame.jpg'
+            )->post('http://127.0.0.1:5000/recognize-face');
 
             if ($response->successful()) {
                 $studentId = $response->json('student_id');
 
-                // تحديث سجل الحضور
-                $attendance = Attendance::where('schedule_id', $request->schedule_id)
+                Attendance::where('schedule_id', $request->schedule_id)
                     ->where('student_id', $studentId)
                     ->whereDate('attendance_date', today())
-                    ->first();
-
-                if ($attendance && !$attendance->is_present) {
-                    $attendance->update([
-                        'is_present' => true,
+                    ->update([
+                        'is_present'  => true,
                         'attended_at' => now(),
                     ]);
-                }
 
-                return response()->json([
-                    'status' => 'success',
-                    'student_id' => $studentId
-                ]);
+                return response()->json(['status' => 'success']);
             }
 
         } catch (\Exception $e) {
-            // تسجيل الخطأ في حال فشل الاتصال بـ Python
-            Log::error('Flask API connection error: ' . $e->getMessage());
-            return response()->json(['error' => 'Could not connect to recognition service.'], 500);
+            Log::error($e->getMessage());
         }
 
         return response()->json(['status' => 'not_recognized'], 404);
     }
 
+    /* ================= END SESSION + SEND OTP ================= */
     public function endAttendanceSession(Course $course, Request $request)
-    {
-        $scheduleId = $request->input('schedule_id');
-    
-        $absentStudents = Attendance::where('schedule_id', $scheduleId)
-            ->whereDate('attendance_date', today())
-            ->where('is_present', false)
-            ->with('student')
-            ->get();
-    
-        foreach ($absentStudents as $attendance) {
-            $student = $attendance->student;
-            if ($student && $student->email) {
-                $verificationCode = Str::random(6);
-    
-                // بدلاً من إرسال الإيميل مباشرة، نرسل المهمة إلى الطابور
-                SendAbsentVerificationEmail::dispatch($student, $verificationCode);
-            }
+{
+    $scheduleId = $request->input('schedule_id');
+
+    $absentAttendances = Attendance::where('schedule_id', $scheduleId)
+        ->whereDate('attendance_date', today())
+        ->where('is_present', false)
+        ->with('student')
+        ->get();
+
+    foreach ($absentAttendances as $attendance) {
+        $student = $attendance->student;
+
+        if (!$student || !$student->email) {
+            continue;
         }
-    
-        return redirect()->route('teacher.courses.show', $course)->with('success', 'Session ended. Notifications for absent students are being sent.');
+
+        // 🔐 توليد OTP
+        $otp = (string) random_int(100000, 999999);
+
+        // 🗄️ تخزين HASH فقط
+        AttendanceOtp::create([
+            'student_id'    => $student->id,
+            'attendance_id' => $attendance->id,
+            'otp_hash'      => Hash::make($otp),
+            'expires_at'    => now()->addMinutes(10),
+        ]);
+
+        // 📧 إرسال الإيميل
+        Mail::to($student->email)
+            ->send(new AbsentStudentVerificationMail($otp, $course->name));
     }
+
+    // تحويل المعلم مباشرة لواجهة OTP
+    return redirect()
+        ->route('teacher.attendance.otp.show', $course->id)
+        ->with('success', 'تم إرسال رموز التحقق للطلبة الغائبين');
+}
+
+    /* ================= OTP VIEW (TEACHER) ================= */
+    public function showOtpVerification(Course $course)
+    {
+        $unverifiedAttendances = Attendance::whereHas('schedule', function ($q) use ($course) {
+            $q->where('course_id', $course->id);
+        })
+        ->whereDate('attendance_date', today())
+        ->where('is_present', false)
+        ->with('student')
+        ->get();
+
+        return Inertia::render('Teacher/Attendance/OtpVerification', [
+            'course' => $course,
+            'unverifiedAttendances' => $unverifiedAttendances,
+        ]);
+    }
+
+    /* ================= VERIFY OTP (TEACHER ONLY) ================= */
+    public function verifyOtpManually(Request $request)
+{
+    $request->validate([
+        'attendance_id' => 'required|exists:attendances,id',
+        'otp' => 'required|digits:6',
+    ]);
+
+    $otpRecord = AttendanceOtp::where('attendance_id', $request->attendance_id)
+        ->whereNull('used_at')
+        ->where('expires_at', '>', now())
+        ->first();
+
+    if (!$otpRecord || !Hash::check($request->otp, $otpRecord->otp_hash)) {
+        return back()->withErrors([
+            'otp' => 'OTP غير صحيح أو منتهي',
+        ]);
+    }
+
+    // ✅ جلب الحضور بشكل صريح
+    $attendance = Attendance::find($otpRecord->attendance_id);
+
+    if (!$attendance) {
+        return back()->withErrors([
+            'otp' => 'سجل الحضور غير موجود',
+        ]);
+    }
+
+    if ($attendance->is_present) {
+        return back()->withErrors([
+            'otp' => 'تم تأكيد حضور هذا الطالب مسبقًا',
+        ]);
+    }
+
+    // ✅ تسجيل الحضور
+    $attendance->update([
+        'is_present'  => true,
+        'attended_at' => now(),
+    ]);
+
+    // 🔒 تعطيل OTP
+    $otpRecord->update([
+        'used_at' => now(),
+    ]);
+
+    return back()->with('success', 'تم تأكيد الحضور بنجاح ✅');
+}
+
 }

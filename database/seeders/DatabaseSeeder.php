@@ -16,39 +16,71 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1) Admin user
-        User::create([
-            'name'     => 'Admin User',
-            'email'    => 'admin@example.com',
-            'password' => Hash::make('password'),
-            'role'     => UserRole::ADMIN,
-        ]);
+        /*
+        |--------------------------------------------------------------------------
+        | 1) Admin User (SAFE – no duplicates)
+        |--------------------------------------------------------------------------
+        */
+        $admin = User::firstOrCreate(
+            ['email' => 'admin@example.com'],
+            [
+                'name'     => 'Admin User',
+                'password' => Hash::make('password'),
+                'role'     => UserRole::ADMIN,
+            ]
+        );
 
-        // 2) Teachers (5)
-        $teachers = User::factory(5)->create([
-            'role' => UserRole::TEACHER,
-        ]);
+        /*
+        |--------------------------------------------------------------------------
+        | 2) Teachers (5)
+        |--------------------------------------------------------------------------
+        */
+        $teachers = User::factory()
+            ->count(5)
+            ->create([
+                'role' => UserRole::TEACHER,
+            ]);
 
-        // 3) Students (50)
-        $students = User::factory(50)->create([
-            'role' => UserRole::STUDENT,
-        ]);
+        /*
+        |--------------------------------------------------------------------------
+        | 3) Students (50)
+        |--------------------------------------------------------------------------
+        */
+        $students = User::factory()
+            ->count(50)
+            ->create([
+                'role' => UserRole::STUDENT,
+            ]);
 
-       // ... سييدراتك الحالية
-       $this->call(ClassroomSeeder::class);
+        /*
+        |--------------------------------------------------------------------------
+        | 4) Classrooms
+        |--------------------------------------------------------------------------
+        */
+        $this->call(ClassroomSeeder::class);
 
-        // 5) Courses (10) + تعيين teacher_id لكل مادة من قائمة المعلمين
-        $courses = Course::factory(10)->create();
+        /*
+        |--------------------------------------------------------------------------
+        | 5) Courses (10) + assign teacher_id
+        |--------------------------------------------------------------------------
+        */
+        $courses = Course::factory()
+            ->count(10)
+            ->create();
 
-        // عيّن معلّم لكل مادة (عشوائي من الـ $teachers)
         $courses->each(function (Course $course) use ($teachers) {
-            // لو الفاكتوري ما وضع teacher_id، نحدثه هنا
             if (empty($course->teacher_id)) {
-                $course->update(['teacher_id' => $teachers->random()->id]);
+                $course->update([
+                    'teacher_id' => $teachers->random()->id,
+                ]);
             }
         });
 
-        // 6) سجّل كل طالب في 3 مواد عشوائية (بدون تكرار)
+        /*
+        |--------------------------------------------------------------------------
+        | 6) Enroll students in 3 random courses (pivot: course_student)
+        |--------------------------------------------------------------------------
+        */
         $students->each(function (User $student) use ($courses) {
             $student->courses()->syncWithoutDetaching(
                 $courses->random(3)->pluck('id')->toArray()

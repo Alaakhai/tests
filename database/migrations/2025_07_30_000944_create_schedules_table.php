@@ -17,22 +17,29 @@ return new class extends Migration
             // العلاقة مع المادة
             $table->foreignId('course_id')->constrained()->onDelete('cascade');
 
-            // ✅ التعديلات الجديدة
             // علاقة بالمدرس (teacher)
-            $table->foreignId('teacher_id')->nullable()->constrained('users')->onDelete('set null');
+            $table->foreignId('teacher_id')
+                  ->nullable()
+                  ->constrained('users')
+                  ->onDelete('set null');
 
-            // علاقة بالفصل الدراسي (semester)
-            $table->foreignId('semester_id')->nullable()->constrained('semesters')->onDelete('set null');
+            // 🔧 إصلاح الخطأ فقط: إزالة الربط بجدول غير موجود
+            $table->unsignedBigInteger('semester_id')->nullable();
 
             // علاقة بالقاعة الدراسية
-            $table->foreignId('classroom_id')->nullable()->constrained('classrooms')->onDelete('set null');
+            $table->foreignId('classroom_id')
+                  ->nullable()
+                  ->constrained('classrooms')
+                  ->onDelete('set null');
 
-            // اليوم والوقت (المحتوى الأصلي محفوظ)
-            $table->enum('day_of_week', ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday']);
+            // اليوم والوقت
+           $table->string('day_of_week');
+
+
             $table->time('start_time');
             $table->time('end_time');
 
-            // ✅ حالة تفعيل الحصة
+            // حالة تفعيل الحصة
             $table->boolean('is_active')->default(true);
 
             $table->timestamps();
