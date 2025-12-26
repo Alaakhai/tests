@@ -1,226 +1,302 @@
 <script setup>
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head } from '@inertiajs/vue3';
-import { onMounted, ref, watch } from 'vue';
-import Chart from 'chart.js/auto';
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
+import { Head } from '@inertiajs/vue3'
+import { onMounted, ref } from 'vue'
+import Chart from 'chart.js/auto'
 
-// Props من الكنترولر
 const props = defineProps({
-    stats: Object,
-    recentCheckIns: Array,
-    notifications: Array,
-    chartData: Object,
-});
+  stats: Object,
+  recentCheckIns: Array,
+  notifications: Array,
+  chartData: Object,
+})
 
-// مرجع للرسم البياني
-const chartRef = ref(null);
+const chartRef = ref(null)
 
-// تهيئة الرسم البياني عند التحميل
 onMounted(() => {
-    if (chartRef.value) {
-        new Chart(chartRef.value, {
-            type: 'line',
-            data: props.chartData,
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    x: { 
-                        grid: { display: false },
-                        ticks: {
-                            color: '#4B5563', // لون التسميات
-                        }
-                    },
-                    y: {
-                        grid: { 
-                            borderDash: [5, 5], 
-                            color: 'rgba(59, 130, 246, 0.2)' // لون خطوط الشبكة أزرق فاتح
-                        },
-                        ticks: {
-                            callback: value => value + '%',
-                            color: '#4B5563', // لون التسميات
-                        }
-                    }
-                },
-                elements: {
-                    line: {
-                        tension: 0.4, // لجعل الخط منحنيًا
-                        borderColor: '#2563eb', // لون الخط الأساسي أزرق داكن
-                        borderWidth: 3,
-                    },
-                    point: {
-                        radius: 5,
-                        backgroundColor: '#3b82f6', // لون النقاط أزرق فاتح
-                        hoverRadius: 7,
-                    }
-                }
+  if (chartRef.value) {
+    new Chart(chartRef.value, {
+      type: 'line',
+      data: props.chartData,
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: '#9ca3af' }
+          },
+          y: {
+            grid: {
+              borderDash: [5, 5],
+              color: 'rgba(59,130,246,0.25)'
+            },
+            ticks: {
+              callback: v => v + '%',
+              color: '#9ca3af'
             }
-        });
-    }
-});
+          }
+        },
+        elements: {
+          line: {
+            tension: 0.45,
+            borderColor: '#3b82f6',
+            borderWidth: 3
+          },
+          point: {
+            radius: 4,
+            backgroundColor: '#60a5fa',
+            hoverRadius: 6
+          }
+        }
+      }
+    })
+  }
+})
 </script>
 
 <template>
-    <Head title="Dashboard" />
+<Head title="Dashboard" />
 
-    <AuthenticatedLayout>
-        <div class="p-6 dashboard-container min-h-screen">
-            <h1 class="text-2xl font-bold text-blue-900 mb-6 flex items-center">
-                <i class="fas fa-chart-line text-blue-500 text-2xl mr-3 icon-gradient"></i>
-                Dashboard
-            </h1>
+<AuthenticatedLayout>
+  <div class="dashboard-container min-h-screen p-4 sm:p-6 space-y-8">
 
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <div class="stat-card">
-                    <div>
-                        <p class="text-sm font-medium text-gray-500">Total Students</p>
-                        <p class="text-3xl font-bold text-gray-900 mt-1">{{ stats.totalStudents }}</p>
-                    </div>
-                    <i class="fas fa-users text-blue-500 text-4xl card-icon"></i>
-                </div>
-                
-                <div class="stat-card">
-                    <div>
-                        <p class="text-sm font-medium text-gray-500">Total Teachers</p>
-                        <p class="text-3xl font-bold text-gray-900 mt-1">{{ stats.totalTeachers }}</p>
-                    </div>
-                    <i class="fas fa-chalkboard-teacher text-blue-500 text-4xl card-icon"></i>
-                </div>
-                
-                <div class="stat-card">
-                    <div>
-                        <p class="text-sm font-medium text-gray-500">Total Courses</p>
-                        <p class="text-3xl font-bold text-gray-900 mt-1">{{ stats.totalCourses }}</p>
-                    </div>
-                    <i class="fas fa-book-open text-blue-500 text-4xl card-icon"></i>
-                </div>
-                
-                <div class="stat-card">
-                    <div>
-                        <p class="text-sm font-medium text-gray-500">Daily Attendance</p>
-                        <p class="text-3xl font-bold text-gray-900 mt-1">
-                            {{ chartData.datasets[0].data[chartData.datasets[0].data.length - 1] }}%
-                        </p>
-                    </div>
-                    <i class="fas fa-check-circle text-blue-500 text-4xl card-icon"></i>
-                </div>
-            </div>
+    <!-- ===================== Page Title ===================== -->
+    <h1 class="dashboard-title text-gradient">
+      Dashboard
+    </h1>
 
-            <div class="bg-white p-6 rounded-xl shadow-lg mb-8 chart-card">
-                <h2 class="text-xl font-semibold text-blue-900 mb-4">Weekly Attendance Trend</h2>
-                <div class="flex items-baseline mb-4">
-                    <p class="text-4xl font-bold text-gray-900">
-                        {{ chartData.datasets[0].data[chartData.datasets[0].data.length - 1] }}%
-                    </p>
-                    <span class="text-sm text-green-600 font-medium ml-2 bg-green-100 px-2 py-0.5 rounded-full border border-green-300">
-                        <i class="fas fa-arrow-up text-xs mr-1"></i>
-                        vs last week
-                    </span>
-                </div>
-                <div style="height: 300px;">
-                    <canvas ref="chartRef"></canvas>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="bg-white p-6 rounded-xl shadow-lg list-card">
-                    <h2 class="text-xl font-semibold text-blue-900 mb-4">Recent Check-Ins</h2>
-                    <ul>
-                        <li v-for="(item, index) in recentCheckIns" :key="index" class="flex justify-between items-center py-3 border-b last:border-b-0 border-gray-100 hover:bg-blue-50 transition-colors rounded-md px-2 -mx-2">
-                            <span class="text-gray-800 font-medium flex items-center">
-                                <i class="fas fa-user-check text-blue-400 mr-2 text-lg"></i>
-                                {{ item.name }}
-                            </span>
-                            <span class="text-gray-500 text-sm bg-blue-100 px-2 rounded-full">{{ item.time }}</span>
-                        </li>
-                    </ul>
-                </div>
-
-                <div class="bg-white p-6 rounded-xl shadow-lg list-card">
-                    <h2 class="text-xl font-semibold text-blue-900 mb-4">Notifications</h2>
-                    <ul>
-                        <li v-for="(notification, index) in notifications" :key="index"
-                            :class="['flex items-start p-3 rounded-lg mb-2 notification-item',
-                                    notification.type === 'alert' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-blue-50 text-blue-700 border border-blue-200']">
-                            <i :class="['fas', notification.icon, 'mr-3 mt-1', notification.type === 'alert' ? 'text-red-500' : 'text-blue-500']"></i>
-                            <p class="text-sm font-medium">{{ notification.message }}</p>
-                        </li>
-                    </ul>
-                </div>
-            </div>
+    <!-- ===================== Stats ===================== -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div class="stat-card">
+        <div>
+          <p class="text-sm text-blue-300/70">Total Students</p>
+          <p class="stat-number">{{ stats.totalStudents }}</p>
         </div>
-    </AuthenticatedLayout>
+        <i class="fas fa-users card-icon"></i>
+      </div>
+
+      <div class="stat-card">
+        <div>
+          <p class="text-sm text-blue-300/70">Total Teachers</p>
+          <p class="stat-number">{{ stats.totalTeachers }}</p>
+        </div>
+        <i class="fas fa-chalkboard-teacher card-icon"></i>
+      </div>
+
+      <div class="stat-card">
+        <div>
+          <p class="text-sm text-blue-300/70">Total Courses</p>
+          <p class="stat-number">{{ stats.totalCourses }}</p>
+        </div>
+        <i class="fas fa-book-open card-icon"></i>
+      </div>
+
+      <div class="stat-card">
+        <div>
+          <p class="text-sm text-blue-300/70">Daily Attendance</p>
+          <p class="stat-number">
+            {{ chartData.datasets[0].data.at(-1) }}%
+          </p>
+        </div>
+        <i class="fas fa-check-circle card-icon"></i>
+      </div>
+    </div>
+
+    <!-- ===================== Chart ===================== -->
+    <div class="chart-card">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="section-title">Weekly Attendance Trend</h2>
+        <span class="trend-badge">
+          {{ chartData.datasets[0].data.at(-1) }}%
+        </span>
+      </div>
+
+      <div class="chart-wrapper">
+        <canvas ref="chartRef"></canvas>
+      </div>
+    </div>
+
+    <!-- ===================== Lists ===================== -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="list-card">
+        <h2 class="section-title">Recent Check-Ins</h2>
+        <ul>
+          <li
+            v-for="(item, index) in recentCheckIns"
+            :key="index"
+            class="list-item"
+          >
+            <span class="flex items-center">
+              <i class="fas fa-user-check text-blue-400 mr-2"></i>
+              {{ item.name }}
+            </span>
+            <span class="time-badge">{{ item.time }}</span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="list-card">
+        <h2 class="section-title">Notifications</h2>
+        <ul>
+          <li
+            v-for="(notification, index) in notifications"
+            :key="index"
+            :class="[
+              'notification-item',
+              notification.type === 'alert' ? 'alert' : 'info'
+            ]"
+          >
+            <i :class="['fas', notification.icon, 'mr-3 mt-1']"></i>
+            <p>{{ notification.message }}</p>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+</AuthenticatedLayout>
 </template>
 
 <style scoped>
-/* -------------------------- */
-/* Global Container Styling (الخلفية الزرقاء الهادئة) */
-/* -------------------------- */
-.dashboard-container {
-    /* تطبيق الخلفية الزرقاء الهادئة */
-    background: linear-gradient(135deg, #f5faff 0%, #e6f3ff 100%);
+/* ===================== Background ===================== */
+.dashboard-container{
+  background: radial-gradient(circle at top, #0f172a, #020617);
 }
 
-/* -------------------------- */
-/* Header Icon Gradient */
-/* -------------------------- */
-.icon-gradient {
-    /* تطبيق تدرج لوني على الأيقونة النصية */
-    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-}
-.text-blue-900 {
-    color: #1e3a8a; /* لضمان لون أزرق داكن متناسق */
+/* ===================== Title ===================== */
+.text-gradient{
+  background: linear-gradient(to right, #4F46E5, #3B82F6);
+  -webkit-background-clip: text;
+  color: transparent;
 }
 
-/* -------------------------- */
-/* Stat Card Styling */
-/* -------------------------- */
-.stat-card {
-    background: #ffffff;
-    padding: 1.5rem;
-    border-radius: 12px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(59, 130, 246, 0.1); /* ظل خفيف مع حدود زرقاء */
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-.stat-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3), 0 0 0 1px rgba(59, 130, 246, 0.15);
+.dashboard-title{
+  font-size: 1.875rem;   /* أصغر شوي */
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  line-height: 1.2;
 }
 
-.card-icon {
-    /* تلوين الأيقونات بتدرج لوني لتأثير أكثر حيوية */
-    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.1));
+/* ===================== Cards ===================== */
+.stat-card,
+.chart-card,
+.list-card{
+  background: linear-gradient(180deg, #020617, #020617);
+  border-radius: 16px;
+  padding: 1.1rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    inset 0 0 30px rgba(59,130,246,0.25),
+    0 15px 40px rgba(0,0,0,0.7);
 }
 
-/* -------------------------- */
-/* Main Cards (Chart & Lists) */
-/* -------------------------- */
-.chart-card, .list-card {
-    border-radius: 1rem; /* rounded-xl */
-    box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
-    border: 1px solid #e5e7eb;
+.stat-number{
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #e5f0ff;
 }
 
-/* -------------------------- */
-/* Notification Styling */
-/* -------------------------- */
-.notification-item {
-    transition: all 0.2s ease;
+.card-icon{
+  font-size: 2rem;
+  color: #60a5fa;
+  filter: drop-shadow(0 0 10px rgba(96,165,250,0.7));
 }
-.notification-item:hover {
-    filter: brightness(0.98);
+
+/* ===================== Chart ===================== */
+.chart-wrapper{
+  position: relative;
+  width: 100%;
+  height: 300px;
+}
+
+.trend-badge{
+  background: rgba(16,185,129,0.15);
+  color: #10b981;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+/* ===================== Lists ===================== */
+.section-title{
+  color: #bfdbfe;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.list-item{
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  color: #e5f0ff;
+}
+
+.time-badge{
+  background: rgba(59,130,246,0.2);
+  color: #93c5fd;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+}
+
+.notification-item{
+  display: flex;
+  padding: 0.75rem;
+  border-radius: 10px;
+  margin-bottom: 0.5rem;
+  color: #e5f0ff;
+}
+
+.notification-item.info{
+  background: rgba(59,130,246,0.15);
+}
+
+.notification-item.alert{
+  background: rgba(239,68,68,0.15);
+  color: #fecaca;
+}
+
+/* ===================== Glow ===================== */
+.stat-card::before,
+.chart-card::before,
+.list-card::before{
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 18px;
+  background: linear-gradient(
+    to bottom,
+    rgba(96,165,250,0.55),
+    rgba(96,165,250,0.25),
+    rgba(96,165,250,0.08),
+    transparent
+  );
+  filter: blur(12px);
+}
+
+.stat-card::after,
+.chart-card::after,
+.list-card::after{
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(to right, transparent, #60a5fa, transparent);
+}
+
+@media (max-width: 768px){
+  .chart-wrapper{ height: 220px; }
+}
+@media (max-width: 480px){
+  .chart-wrapper{ height: 200px; }
 }
 </style>

@@ -13,6 +13,9 @@ const form = useForm({
 
 const photoPreviews = ref([]);
 
+// success message
+const successMessage = ref('');
+
 const handlePhotoUpload = (event) => {
   form.photos = Array.from(event.target.files);
   photoPreviews.value = [];
@@ -30,6 +33,11 @@ const handlePhotoUpload = (event) => {
 
 const submit = () => {
   form.post(route('admin.students.store'), {
+    onSuccess: () => {
+      successMessage.value = 'تمت إضافة الطالب بنجاح!';
+      form.reset('name', 'email', 'password', 'password_confirmation', 'photos');
+      photoPreviews.value = [];
+    },
     onFinish: () => form.reset('password', 'password_confirmation'),
   });
 };
@@ -37,34 +45,46 @@ const submit = () => {
 
 <template>
   <AuthenticatedLayout>
-    <Head title="إضافة طالب جديد" />
+    <Head title="Add New Student" />
 
-    <div class="max-w-2xl mx-auto mt-10 p-10 bg-white rounded-3xl shadow-2xl border border-indigo-100 form-card-prominent">
-      
+    <!-- Success Toast -->
+    <div v-if="successMessage" class="w-full flex justify-center mt-6">
+      <div
+        class="w-full max-w-4xl bg-green-500 text-white px-8 py-4 rounded-3xl shadow-lg flex items-center justify-center"
+      >
+        <i class="fas fa-check-circle ml-3 text-xl"></i>
+        <span class="text-lg font-bold">
+          {{ successMessage }}
+        </span>
+      </div>
+    </div>
+
+    <div class="max-w-2xl mx-auto mt-10 p-10 bg-[#1e293b] rounded-3xl shadow-2xl border border-indigo-100 form-card-prominent">
+
       <div class="flex items-center mb-8 border-b pb-4 border-indigo-200">
         <i class="fas fa-user-graduate text-3xl text-indigo-700 mr-3"></i>
-        <h2 class="text-3xl font-extrabold text-gray-900 leading-tight">إضافة طالب جديد</h2>
+        <h2 class="text-3xl font-extrabold text-white leading-tight">Add New Student</h2>
       </div>
 
       <form @submit.prevent="submit" class="space-y-6">
 
-        <!-- اسم الطالب -->
+        <!-- Student Name -->
         <div>
-          <label for="name" class="block mb-2 font-bold text-gray-800">اسم الطالب</label>
+          <label for="name" class="block mb-2 font-bold text-gray-300">Student Name</label>
           <input
             v-model="form.name"
             id="name"
             type="text"
             class="w-full input-field-prominent"
             required
-            placeholder="أدخل اسم الطالب"
+            placeholder="Enter student's name"
           />
           <div v-if="form.errors.name" class="text-red-600 text-sm mt-1 font-semibold">{{ form.errors.name }}</div>
         </div>
 
-        <!-- البريد الإلكتروني -->
+        <!-- Email -->
         <div>
-          <label for="email" class="block mb-2 font-bold text-gray-800">البريد الإلكتروني</label>
+          <label for="email" class="block mb-2 font-bold text-gray-300">Email</label>
           <input
             v-model="form.email"
             id="email"
@@ -76,36 +96,36 @@ const submit = () => {
           <div v-if="form.errors.email" class="text-red-600 text-sm mt-1 font-semibold">{{ form.errors.email }}</div>
         </div>
 
-        <!-- كلمة المرور -->
+        <!-- Password -->
         <div>
-          <label for="password" class="block mb-2 font-bold text-gray-800">كلمة المرور</label>
+          <label for="password" class="block mb-2 font-bold text-gray-300">Password</label>
           <input
             v-model="form.password"
             id="password"
             type="password"
             class="w-full input-field-prominent"
             required
-            placeholder="أدخل كلمة المرور"
+            placeholder="Enter password"
           />
           <div v-if="form.errors.password" class="text-red-600 text-sm mt-1 font-semibold">{{ form.errors.password }}</div>
         </div>
 
-        <!-- تأكيد كلمة المرور -->
+        <!-- Password Confirmation -->
         <div>
-          <label for="password_confirmation" class="block mb-2 font-bold text-gray-800">تأكيد كلمة المرور</label>
+          <label for="password_confirmation" class="block mb-2 font-bold text-gray-300">Confirm Password</label>
           <input
             v-model="form.password_confirmation"
             id="password_confirmation"
             type="password"
             class="w-full input-field-prominent"
             required
-            placeholder="أعد كتابة كلمة المرور"
+            placeholder="Re-enter password"
           />
         </div>
 
-        <!-- رفع الصور -->
+        <!-- Upload Photos -->
         <div>
-          <label for="photos" class="block mb-2 font-bold text-gray-800">صور الطالب (يمكن اختيار أكثر من صورة)</label>
+          <label for="photos" class="block mb-2 font-bold text-gray-300">Student Photos (You can select multiple images)</label>
           <input
             @change="handlePhotoUpload"
             id="photos"
@@ -117,21 +137,21 @@ const submit = () => {
           <div v-if="form.errors.photos" class="text-red-600 text-sm mt-1 font-semibold">{{ form.errors.photos }}</div>
         </div>
 
-        <!-- معاينة الصور -->
+        <!-- Photo Previews -->
         <div v-if="photoPreviews.length > 0" class="mt-6 grid grid-cols-3 gap-4">
           <div v-for="(preview, index) in photoPreviews" :key="index" class="relative">
             <img :src="preview" class="h-24 w-24 object-cover rounded-xl border-2 border-indigo-200 shadow-md" />
           </div>
         </div>
 
-        <!-- الزر -->
+        <!-- Submit Button -->
         <button
           type="submit"
           :disabled="form.processing"
           class="w-full py-4 mt-6 text-xl font-extrabold rounded-xl transition-all duration-300 transform hover:-translate-y-1 prominent-submit-button"
         >
-          <span v-if="form.processing">جاري إنشاء الحساب...</span>
-          <span v-else>🎓 إنشاء حساب الطالب</span>
+          <span v-if="form.processing">Creating account...</span>
+          <span v-else>Create Student Account</span>
         </button>
       </form>
     </div>
@@ -139,16 +159,12 @@ const submit = () => {
 </template>
 
 <style scoped>
-/* -------------------------- */
-/* Prominent Card & Field Styling */
-/* -------------------------- */
 .form-card-prominent {
   box-shadow: 0 15px 35px rgba(49, 46, 129, 0.2), 0 5px 15px rgba(0, 0, 0, 0.05);
 }
 
-/* تصميم حقول الإدخال */
 .input-field-prominent {
-  @apply rounded-xl shadow-md px-4 py-3 transition-all duration-300 bg-white;
+  @apply rounded-xl shadow-md px-4 py-3 transition-all duration-300 bg-[#1e293b];
   border: 2px solid #D1D5DB;
   font-size: 1rem;
 }
@@ -159,9 +175,6 @@ const submit = () => {
   border-color: #4F46E5;
 }
 
-/* -------------------------- */
-/* زر الإرسال */
-/* -------------------------- */
 .prominent-submit-button {
   background: linear-gradient(90deg, #4F46E5 0%, #3B82F6 100%);
   color: white;
