@@ -16,8 +16,8 @@ WORKDIR /var/www
 # Copy project files
 COPY . .
 
-# Install dependencies
-RUN composer install --no-dev --optimize-autoloader
+# Install dependencies (ignore platform requirements)
+RUN composer install --no-dev --optimize-autoloader --ignore-platform-reqs
 
 # Expose port 10000 for Render
 EXPOSE 10000
