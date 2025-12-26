@@ -16,11 +16,11 @@ WORKDIR /var/www
 # Copy project files
 COPY . .
 
-# Disable post-install scripts to avoid artisan errors
+# Install dependencies (ignore scripts + platform requirements)
 RUN composer install --no-scripts --no-dev --optimize-autoloader --ignore-platform-reqs
+
+# Generate key and clear caches when container starts
+CMD php artisan key:generate --force && php artisan config:clear && php artisan serve --host=0.0.0.0 --port=10000
 
 # Expose port 10000 for Render
 EXPOSE 10000
-
-# Start Laravel app
-CMD php artisan key:generate && php artisan serve --host=0.0.0.0 --port=10000
