@@ -1,8 +1,6 @@
-# Dockerfile for Laravel app on Render
-
 FROM php:8.2-fpm
 
-# Install system dependencies + libzip
+# Install system dependencies + PHP zip extension
 RUN apt-get update && apt-get install -y \
     git curl zip unzip libzip-dev \
     libpng-dev libonig-dev libxml2-dev \
@@ -24,12 +22,10 @@ WORKDIR /var/www
 # Copy project files
 COPY . .
 
-# Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader
+# Install PHP dependencies WITHOUT running any artisan scripts
+RUN composer install --no-dev --optimize-autoloader --no-scripts
 
-# Start Laravel
-CMD php artisan key:generate --force \
- && php artisan config:clear \
- && php artisan serve --host=0.0.0.0 --port=10000
+# Run Laravel (no key:generate, no config clear)
+CMD php artisan serve --host=0.0.0.0 --port=10000
 
 EXPOSE 10000
